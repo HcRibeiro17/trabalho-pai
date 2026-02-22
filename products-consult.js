@@ -118,8 +118,7 @@ async function loadProducts() {
 
   let query = supabase
     .from("products")
-    .select("*", { count: "exact" })
-    .eq("user_id", currentUser.id);
+    .select("*", { count: "exact" });
 
   if (currentSearch) {
     query = query.or(`product_code.ilike.%${currentSearch}%,name.ilike.%${currentSearch}%`);

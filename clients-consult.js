@@ -68,8 +68,7 @@ async function loadClients() {
 
   let query = supabase
     .from("clients")
-    .select("id, name, email, phone, payment_term, price_table, billing_unit", { count: "exact" })
-    .eq("user_id", currentUser.id);
+    .select("id, name, email, phone, payment_term, price_table, billing_unit", { count: "exact" });
 
   if (currentSearch) {
     query = query.or(`name.ilike.%${currentSearch}%,email.ilike.%${currentSearch}%,phone.ilike.%${currentSearch}%`);

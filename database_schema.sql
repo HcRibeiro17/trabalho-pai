@@ -91,10 +91,62 @@ create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   client_id uuid not null references public.clients(id) on delete restrict,
+  regional text not null check (regional in ('ESPIRITO SANTO', 'RIO DE JANEIRO')),
+  order_seq integer not null check (order_seq > 0),
+  order_code text not null,
   total numeric(12,2) not null check (total >= 0),
   status text not null default 'aberto',
   created_at timestamptz not null default now()
 );
+
+alter table public.orders add column if not exists regional text;
+alter table public.orders add column if not exists order_seq integer;
+alter table public.orders add column if not exists order_code text;
+
+update public.orders o
+set regional = coalesce(o.regional, p.regional)
+from public.profiles p
+where o.user_id = p.user_id
+  and o.regional is null;
+
+update public.orders
+set regional = 'ESPIRITO SANTO'
+where regional is null;
+
+with ranked_orders as (
+  select
+    id,
+    regional,
+    row_number() over (partition by user_id, regional order by created_at, id) as seq
+  from public.orders
+)
+update public.orders o
+set order_seq = r.seq
+from ranked_orders r
+where o.id = r.id
+  and o.order_seq is null;
+
+update public.orders
+set order_code = (
+  case regional
+    when 'ESPIRITO SANTO' then 'ES'
+    when 'RIO DE JANEIRO' then 'RJ'
+    else 'XX'
+  end
+) || '-' || lpad(order_seq::text, 7, '0')
+where order_code is null
+  and order_seq is not null;
+
+alter table public.orders
+  alter column regional set not null,
+  alter column order_seq set not null,
+  alter column order_code set not null;
+
+create unique index if not exists orders_user_regional_seq_uidx
+on public.orders (user_id, regional, order_seq);
+
+create unique index if not exists orders_user_code_uidx
+on public.orders (user_id, order_code);
 
 create table if not exists public.order_items (
   id uuid primary key default gen_random_uuid(),
@@ -117,16 +169,50 @@ using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
 drop policy if exists "clients_owner_rw" on public.clients;
-create policy "clients_owner_rw" on public.clients
-for all to authenticated
+drop policy if exists "clients_read_all" on public.clients;
+drop policy if exists "clients_insert_owner" on public.clients;
+drop policy if exists "clients_update_owner" on public.clients;
+drop policy if exists "clients_delete_owner" on public.clients;
+
+create policy "clients_read_all" on public.clients
+for select to authenticated
+using (true);
+
+create policy "clients_insert_owner" on public.clients
+for insert to authenticated
+with check (auth.uid() = user_id);
+
+create policy "clients_update_owner" on public.clients
+for update to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+create policy "clients_delete_owner" on public.clients
+for delete to authenticated
+using (auth.uid() = user_id);
+
 drop policy if exists "products_owner_rw" on public.products;
-create policy "products_owner_rw" on public.products
-for all to authenticated
+drop policy if exists "products_read_all" on public.products;
+drop policy if exists "products_insert_owner" on public.products;
+drop policy if exists "products_update_owner" on public.products;
+drop policy if exists "products_delete_owner" on public.products;
+
+create policy "products_read_all" on public.products
+for select to authenticated
+using (true);
+
+create policy "products_insert_owner" on public.products
+for insert to authenticated
+with check (auth.uid() = user_id);
+
+create policy "products_update_owner" on public.products
+for update to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
+
+create policy "products_delete_owner" on public.products
+for delete to authenticated
+using (auth.uid() = user_id);
 
 drop policy if exists "orders_owner_rw" on public.orders;
 create policy "orders_owner_rw" on public.orders

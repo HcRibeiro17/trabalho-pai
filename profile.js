@@ -1,9 +1,29 @@
 let currentUser = null;
+let myOrdersPage = 1;
+const myOrdersPageSize = 8;
+let myOrdersTotalRows = 0;
 
 function setFeedback(message, isError) {
   const feedback = document.getElementById("profileFeedback");
   feedback.textContent = message || "";
   feedback.classList.toggle("error", Boolean(isError));
+}
+
+function setOrdersFeedback(message, isError) {
+  const feedback = document.getElementById("myOrdersFeedback");
+  feedback.textContent = message || "";
+  feedback.classList.toggle("error", Boolean(isError));
+}
+
+function moneyBRL(value) {
+  return Number(value || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function formatDateTimeBR(isoDate) {
+  return new Date(isoDate).toLocaleString("pt-BR");
 }
 
 async function getSessionUser() {
@@ -41,6 +61,59 @@ async function loadProfile() {
   document.getElementById("profileName").value = data?.display_name || "";
   document.getElementById("profileRole").value = data?.role || "";
   document.getElementById("profileRegional").value = data?.regional || "";
+}
+
+function renderMyOrdersTable(rows) {
+  const tableBody = document.getElementById("myOrdersTableBody");
+  tableBody.innerHTML = "";
+
+  if (!rows || rows.length === 0) {
+    tableBody.innerHTML = "<tr><td colspan='5' class='empty-cell'>Nenhum pedido encontrado.</td></tr>";
+    return;
+  }
+
+  rows.forEach((order) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${order.order_code || "-"}</td>
+      <td>${order.clients?.name || "-"}</td>
+      <td>${moneyBRL(order.total)}</td>
+      <td>${order.status || "-"}</td>
+      <td>${formatDateTimeBR(order.created_at)}</td>
+    `;
+    tableBody.appendChild(tr);
+  });
+}
+
+function updateMyOrdersPaginationControls() {
+  const totalPages = Math.max(1, Math.ceil(myOrdersTotalRows / myOrdersPageSize));
+  document.getElementById("myOrdersPaginationInfo").textContent = `Pagina ${myOrdersPage} de ${totalPages} (${myOrdersTotalRows} itens)`;
+  document.getElementById("myOrdersPrevPageButton").disabled = myOrdersPage <= 1;
+  document.getElementById("myOrdersNextPageButton").disabled = myOrdersPage >= totalPages;
+}
+
+async function loadMyOrders() {
+  const supabase = window.supabaseClient;
+  const from = (myOrdersPage - 1) * myOrdersPageSize;
+  const to = from + myOrdersPageSize - 1;
+
+  const { data, error, count } = await supabase
+    .from("orders")
+    .select("order_code, total, status, created_at, clients(name)", { count: "exact" })
+    .eq("user_id", currentUser.id)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error("Erro ao listar meus pedidos:", error);
+    setOrdersFeedback("Nao foi possivel carregar seus pedidos.", true);
+    return;
+  }
+
+  setOrdersFeedback("", false);
+  myOrdersTotalRows = count || 0;
+  renderMyOrdersTable(data || []);
+  updateMyOrdersPaginationControls();
 }
 
 async function saveProfile() {
@@ -112,7 +185,20 @@ async function initProfilePage() {
 
   document.getElementById("saveProfileButton").addEventListener("click", saveProfile);
   document.getElementById("logoutButton").addEventListener("click", logout);
+  document.getElementById("myOrdersPrevPageButton").addEventListener("click", () => {
+    if (myOrdersPage <= 1) return;
+    myOrdersPage -= 1;
+    loadMyOrders();
+  });
+  document.getElementById("myOrdersNextPageButton").addEventListener("click", () => {
+    const totalPages = Math.max(1, Math.ceil(myOrdersTotalRows / myOrdersPageSize));
+    if (myOrdersPage >= totalPages) return;
+    myOrdersPage += 1;
+    loadMyOrders();
+  });
+
   await loadProfile();
+  await loadMyOrders();
 }
 
 document.addEventListener("DOMContentLoaded", initProfilePage);

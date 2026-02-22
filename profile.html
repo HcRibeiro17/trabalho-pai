@@ -65,6 +65,30 @@
       <p id="profileFeedback" class="form-feedback"></p>
       <button type="button" id="saveProfileButton">Salvar perfil</button>
     </section>
+
+    <section class="list-card">
+      <h2>Meus Pedidos</h2>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID Pedido</th>
+              <th>Cliente</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Data</th>
+            </tr>
+          </thead>
+          <tbody id="myOrdersTableBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination-row">
+        <button type="button" id="myOrdersPrevPageButton">Anterior</button>
+        <span id="myOrdersPaginationInfo">Pagina 1</span>
+        <button type="button" id="myOrdersNextPageButton">Proxima</button>
+      </div>
+      <p id="myOrdersFeedback" class="form-feedback"></p>
+    </section>
   </main>
 </body>
 </html>
