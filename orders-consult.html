@@ -29,15 +29,28 @@
     <nav class="breadcrumb" aria-label="Breadcrumb">
       <a href="dashboard.html">Início</a>
       <span class="crumb-sep">></span>
-      <span>Pedidos</span>
+      <a href="orders-consult.html">Pedidos</a>
       <span class="crumb-sep">></span>
       <span>Consultar Pedidos</span>
     </nav>
 
     <section class="list-card">
       <h2>Consultar Pedidos</h2>
-      <div class="search-row">
+      <div class="search-row search-row-orders">
         <input type="text" id="orderSearchInput" placeholder="Buscar por código do pedido">
+        <select id="orderStatusFilter">
+          <option value="">Todos os status</option>
+          <option value="em_criacao">Em criacao</option>
+          <option value="finalizado">Finalizado</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+        <select id="orderRegionalFilter">
+          <option value="">Todas as regionais</option>
+          <option value="ESPIRITO SANTO">ESPIRITO SANTO</option>
+          <option value="RIO DE JANEIRO">RIO DE JANEIRO</option>
+        </select>
+        <input type="date" id="orderDateFromFilter" aria-label="Data inicial">
+        <input type="date" id="orderDateToFilter" aria-label="Data final">
         <button type="button" id="orderSearchButton">Buscar</button>
       </div>
 
@@ -51,7 +64,7 @@
               <th>Total</th>
               <th>Status</th>
               <th>Data</th>
-              <th>PDF</th>
+              <th>Acoes</th>
             </tr>
           </thead>
           <tbody id="ordersTableBody"></tbody>
@@ -66,5 +79,15 @@
       <p id="consultFeedback" class="form-feedback"></p>
     </section>
   </main>
+
+  <div id="pdfPreviewModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-card pdf-preview-card">
+      <div class="pdf-preview-header">
+        <h3>Pre-visualizacao do PDF</h3>
+        <button type="button" id="closePdfPreviewButton" class="small-btn">Fechar</button>
+      </div>
+      <iframe id="pdfPreviewFrame" title="Pre-visualizacao do pedido" class="pdf-preview-frame"></iframe>
+    </div>
+  </div>
 </body>
 </html>

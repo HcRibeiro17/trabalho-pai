@@ -68,7 +68,8 @@ async function loadClients() {
 
   let query = supabase
     .from("clients")
-    .select("id, name, email, phone, payment_term, price_table, billing_unit", { count: "exact" });
+    .select("id, name, email, phone, payment_term, price_table, billing_unit", { count: "exact" })
+    .eq("user_id", currentUser.id);
 
   if (currentSearch) {
     query = query.or(`name.ilike.%${currentSearch}%,email.ilike.%${currentSearch}%,phone.ilike.%${currentSearch}%`);
@@ -85,6 +86,13 @@ async function loadClients() {
   }
 
   totalRows = count || 0;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  if (currentPage > totalPages) {
+    currentPage = totalPages;
+    await loadClients();
+    return;
+  }
+
   renderClientsTable(data || []);
   updatePaginationControls();
 }
@@ -100,15 +108,26 @@ async function deleteClient(clientId) {
   const confirmed = window.confirm("Deseja realmente excluir este cliente?");
   if (!confirmed) return;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("clients")
     .delete()
     .eq("id", clientId)
-    .eq("user_id", currentUser.id);
+    .eq("user_id", currentUser.id)
+    .select("id");
 
   if (error) {
     console.error("Erro ao excluir cliente:", error);
+    if (error.code === "23503") {
+      setFeedback("Nao e possivel excluir cliente com pedidos vinculados.", true);
+      return;
+    }
+
     setFeedback("Nao foi possivel excluir o cliente.", true);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    setFeedback("Cliente nao encontrado ou sem permissao para excluir.", true);
     return;
   }
 

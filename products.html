@@ -43,6 +43,14 @@
         <input type="text" id="productName" maxlength="80" placeholder="Ex.: Refrigerante 2L">
       </label>
       <label>
+        Regional
+        <select id="productRegional">
+          <option value="">Selecione</option>
+          <option value="ESPIRITO SANTO">ESPIRITO SANTO</option>
+          <option value="RIO DE JANEIRO">RIO DE JANEIRO</option>
+        </select>
+      </label>
+      <label>
         Preco de Tabela (R$)
         <input type="text" id="productPriceTable" inputmode="decimal" placeholder="Ex.: 49,67 ou R$ 49,67">
       </label>
@@ -68,7 +76,7 @@
 
       <hr class="section-divider">
       <h3>Importar CSV</h3>
-      <p class="csv-help">Campos obrigatorios: <code>product_code,name,price_table,price_margin_zero,weight,variable_value</code></p>
+      <p class="csv-help">Campos obrigatorios: <code>product_code,name,regional,price_table,price_margin_zero,weight,variable_value</code></p>
       <label>
         Arquivo CSV
         <input type="file" id="productsCsvFile" accept=".csv,text/csv">

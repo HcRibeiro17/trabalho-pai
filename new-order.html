@@ -29,7 +29,7 @@
     <nav class="breadcrumb" aria-label="Breadcrumb">
       <a href="dashboard.html">Início</a>
       <span class="crumb-sep">></span>
-      <span>Pedidos</span>
+      <a href="orders-consult.html">Pedidos</a>
       <span class="crumb-sep">></span>
       <span>Novo Pedido</span>
     </nav>
@@ -39,7 +39,8 @@
     </section>
 
     <section class="order-builder">
-      <h3>Novo Pedido</h3>
+      <h3 id="orderTitle">Novo Pedido</h3>
+      <p id="orderStatusInfo" class="order-status-line">Status: em criacao</p>
       <div class="builder-sections">
         <section class="list-card">
           <h4>Selecionar Cliente</h4>
@@ -47,10 +48,19 @@
             <input type="text" id="clientSearchInput" placeholder="Digite para buscar cliente">
             <div id="clientSuggestions" class="suggestions hidden"></div>
           </div>
+          <div id="selectedClientInfo" class="selected-client-card empty">Selecione um cliente para visualizar os detalhes.</div>
         </section>
 
         <section class="list-card">
           <h4>Selecionar Itens</h4>
+          <label class="compact-field">
+            Regional dos itens
+            <select id="orderRegionalSelect">
+              <option value="">Selecione</option>
+              <option value="ESPIRITO SANTO">ESPIRITO SANTO</option>
+              <option value="RIO DE JANEIRO">RIO DE JANEIRO</option>
+            </select>
+          </label>
           <div class="autocomplete-wrap">
             <input type="text" id="productSearchInput" placeholder="Digite para buscar item">
             <div id="productSuggestions" class="suggestions hidden"></div>
@@ -60,7 +70,6 @@
 
       <div class="cart-panel">
         <h4>Itens do Pedido</h4>
-        <p id="selectedClientInfo"></p>
         <div class="table-wrap">
           <table class="data-table">
             <thead>
@@ -69,9 +78,9 @@
                 <th>Preco Tabela</th>
                 <th>Preco Negociado</th>
                 <th>Quantidade</th>
-                <th>Peso Total</th>
+                <th>Peso Total (kg)</th>
                 <th>Valor Total</th>
-                <th>Margem</th>
+                <th>Margem (R$/kg)</th>
                 <th>Margem Total (T)</th>
                 <th></th>
               </tr>
@@ -85,12 +94,15 @@
           <button type="button" id="cartNextPageButton">Proxima</button>
         </div>
         <div class="cart-summary right-align">
-          <p id="cartTotalWeight" class="cart-total">Peso Total: 0,00</p>
+          <p id="cartTotalWeight" class="cart-total">Peso Total (kg): 0,00</p>
           <p id="cartTotal" class="cart-total">Valor Total: R$ 0,00</p>
-          <p id="cartTotalMargin" class="cart-total">Margem Total: R$ 0,00</p>
-          <p id="cartTotalMarginTon" class="cart-total">Margem Total (T): R$ 0,00</p>
+          <p id="cartTotalMargin" class="cart-total">Margem Total (R$/kg): R$ 0,00</p>
         </div>
-        <button type="button" id="finalizeOrderButton">Finalizar pedido</button>
+        <div class="order-actions-row">
+          <button type="button" id="saveOrderButton">Salvar pedido</button>
+          <button type="button" id="finalizeOrderButton">Finalizar pedido</button>
+          <button type="button" id="cancelOrderButton" class="ghost-danger-btn hidden">Cancelar pedido</button>
+        </div>
       </div>
     </section>
   </main>

@@ -4,6 +4,10 @@ let clients = [];
 let products = [];
 let cartItems = [];
 let currentOrderClientId = null;
+let currentOrderRegional = "";
+let currentOrderId = null;
+let currentOrderCode = null;
+let currentOrderStatus = "em_criacao";
 let lockedProfileModal = false;
 let cartCurrentPage = 1;
 const cartPageSize = 8;
@@ -11,11 +15,17 @@ const cartPageSize = 8;
 const profileModal = document.getElementById("profileModal");
 const welcomeName = document.getElementById("welcomeName");
 const welcomeMeta = document.getElementById("welcomeMeta");
+const orderTitle = document.getElementById("orderTitle");
+const orderStatusInfo = document.getElementById("orderStatusInfo");
 const selectedClientInfo = document.getElementById("selectedClientInfo");
 const clientSearchInput = document.getElementById("clientSearchInput");
 const clientSuggestions = document.getElementById("clientSuggestions");
 const productSearchInput = document.getElementById("productSearchInput");
 const productSuggestions = document.getElementById("productSuggestions");
+const orderRegionalSelect = document.getElementById("orderRegionalSelect");
+const saveOrderButton = document.getElementById("saveOrderButton");
+const finalizeOrderButton = document.getElementById("finalizeOrderButton");
+const cancelOrderButton = document.getElementById("cancelOrderButton");
 
 function moneyBRL(value) {
   return Number(value || 0).toLocaleString("pt-BR", {
@@ -57,6 +67,18 @@ function parsePtBrNumber(rawValue) {
   return Number.isNaN(parsed) ? Number.NaN : parsed;
 }
 
+function getStatusLabel(status) {
+  if (status === "aberto") return "em criacao";
+  if (status === "em_criacao") return "em criacao";
+  if (status === "finalizado") return "finalizado";
+  if (status === "cancelado") return "cancelado";
+  return status || "-";
+}
+
+function isOrderEditable() {
+  return currentOrderStatus === "em_criacao" || currentOrderStatus === "aberto";
+}
+
 function showProfileModal(locked) {
   lockedProfileModal = locked;
   profileModal.classList.remove("hidden");
@@ -83,6 +105,30 @@ function getSelectedClient() {
   return clients.find((item) => item.id === currentOrderClientId) || null;
 }
 
+function renderSelectedClientCard() {
+  const client = getSelectedClient();
+  if (!client) {
+    selectedClientInfo.classList.add("empty");
+    selectedClientInfo.innerHTML = "Selecione um cliente para visualizar os detalhes.";
+    return;
+  }
+
+  selectedClientInfo.classList.remove("empty");
+  selectedClientInfo.innerHTML = `
+    <div class="selected-client-head">
+      <p class="selected-client-title">${client.name}</p>
+      <span class="selected-client-pill">Cliente selecionado</span>
+    </div>
+    <div class="selected-client-grid">
+      <span class="selected-client-item"><strong>Email:</strong> ${client.email || "-"}</span>
+      <span class="selected-client-item"><strong>Telefone:</strong> ${client.phone || "-"}</span>
+      <span class="selected-client-item"><strong>Prazo:</strong> ${client.payment_term || "-"}</span>
+      <span class="selected-client-item"><strong>Tabela:</strong> ${client.price_table || "-"}</span>
+      <span class="selected-client-item"><strong>Unidade:</strong> ${client.billing_unit || "-"}</span>
+    </div>
+  `;
+}
+
 function showSuggestions(container, rows) {
   container.innerHTML = "";
   if (!rows || rows.length === 0) {
@@ -99,16 +145,50 @@ function hideSuggestions(container) {
   container.classList.add("hidden");
 }
 
-function updateClientLockState() {
+function updateOrderHeader() {
+  const titleLabel = currentOrderId
+    ? `Editar Pedido ${currentOrderCode || ""}`.trim()
+    : "Novo Pedido";
+  orderTitle.textContent = titleLabel;
+  const regionalLabel = currentOrderRegional || "-";
+  orderStatusInfo.textContent = `Status: ${getStatusLabel(currentOrderStatus)} | Regional: ${regionalLabel}`;
+  cancelOrderButton.classList.toggle("hidden", !currentOrderId || !isOrderEditable());
+}
+
+function updateInputLockState() {
   const hasItems = cartItems.length > 0;
-  clientSearchInput.disabled = hasItems;
-  if (hasItems) {
-    const client = getSelectedClient();
-    selectedClientInfo.textContent = client ? `Cliente do pedido: ${client.name}` : "";
+  const editable = isOrderEditable();
+  clientSearchInput.disabled = !editable || hasItems;
+  productSearchInput.disabled = !editable;
+  orderRegionalSelect.disabled = !editable || hasItems || Boolean(currentOrderId);
+  saveOrderButton.disabled = !editable;
+  finalizeOrderButton.disabled = !editable;
+  cancelOrderButton.disabled = !editable;
+}
+
+function updateClientLockState() {
+  renderSelectedClientCard();
+  updateInputLockState();
+}
+
+function setOrderRegional(regional) {
+  if (!isOrderEditable()) return;
+  if (cartItems.length > 0 || currentOrderId) {
+    orderRegionalSelect.value = currentOrderRegional || "";
     return;
   }
 
-  selectedClientInfo.textContent = "";
+  currentOrderRegional = regional || "";
+  orderRegionalSelect.value = currentOrderRegional;
+  updateProductInputPlaceholder();
+  productSearchInput.value = "";
+  hideSuggestions(productSuggestions);
+}
+
+function updateProductInputPlaceholder() {
+  productSearchInput.placeholder = currentOrderRegional
+    ? "Digite para buscar item"
+    : "Selecione a regional para buscar itens";
 }
 
 function getCartTotal() {
@@ -155,6 +235,13 @@ function getItemMargin(item) {
   return (negotiatedPrice - marginZeroPrice) * baseMargin;
 }
 
+function getDisplayedTotalMargin(totals) {
+  const totalWeight = Number(totals?.totalWeight || 0);
+  const totalMarginTon = Number(totals?.totalMarginTon || 0);
+  if (totalWeight <= 0) return 0;
+  return totalMarginTon / totalWeight;
+}
+
 function downloadOrderPdf(orderRow, clientName, itemsSnapshot, totals) {
   if (!window.jspdf || !window.jspdf.jsPDF) {
     return;
@@ -180,9 +267,9 @@ function downloadOrderPdf(orderRow, clientName, itemsSnapshot, totals) {
 
   pdf.text("Produto", 14, y);
   pdf.text("Qtd", 95, y);
-  pdf.text("Peso Tot.", 112, y);
+  pdf.text("Peso Tot. (kg)", 112, y);
   pdf.text("Vlr Tot.", 138, y);
-  pdf.text("Margem", 164, y);
+  pdf.text("Margem (R$/kg)", 164, y);
   pdf.text("Margem T", 186, y);
   y += 2;
   pdf.line(14, y, 196, y);
@@ -212,11 +299,12 @@ function downloadOrderPdf(orderRow, clientName, itemsSnapshot, totals) {
   y += 4;
   pdf.line(14, y, 196, y);
   y += 6;
-  pdf.text(`Peso Total: ${numberBR(totals.totalWeight)}`, 14, y);
+  const totalMarginPerKg = totals.totalWeight > 0 ? totals.totalMarginTon / totals.totalWeight : 0;
+  pdf.text(`Peso Total (kg): ${numberBR(totals.totalWeight)}`, 14, y);
   y += 5;
   pdf.text(`Valor Total: ${moneyBRL(totals.totalValue)}`, 14, y);
   y += 5;
-  pdf.text(`Margem Total: ${moneyBRL(totals.totalMargin)}`, 14, y);
+  pdf.text(`Margem Total (R$/kg): ${moneyBRL(totalMarginPerKg)}`, 14, y);
   y += 5;
   pdf.text(`Margem Total (T): ${moneyBRL(totals.totalMarginTon)}`, 14, y);
 
@@ -231,10 +319,10 @@ function getRegionalPrefix(regional) {
 
 async function generateNextOrderIdentity() {
   const supabase = window.supabaseClient;
-  const regional = currentProfile?.regional;
+  const regional = currentOrderRegional;
 
   if (!regional) {
-    throw new Error("Regional do perfil nao encontrada.");
+    throw new Error("Regional do pedido nao encontrada.");
   }
 
   const { data, error } = await supabase
@@ -274,15 +362,13 @@ function renderCartTable() {
   const cartTotalWeight = document.getElementById("cartTotalWeight");
   const cartTotal = document.getElementById("cartTotal");
   const cartTotalMargin = document.getElementById("cartTotalMargin");
-  const cartTotalMarginTon = document.getElementById("cartTotalMarginTon");
   tableBody.innerHTML = "";
 
   if (cartItems.length === 0) {
     tableBody.innerHTML = "<tr><td colspan='9' class='empty-cell'>Nenhum item no pedido.</td></tr>";
-    cartTotalWeight.textContent = "Peso Total: 0,00";
+    cartTotalWeight.textContent = "Peso Total (kg): 0,00";
     cartTotal.innerHTML = `Valor Total: ${currencyHtml(0)}`;
-    cartTotalMargin.innerHTML = `Margem Total: ${currencyHtml(0)}`;
-    cartTotalMarginTon.innerHTML = `Margem Total (T): ${currencyHtml(0)}`;
+    cartTotalMargin.innerHTML = `Margem Total (R$/kg): ${currencyHtml(0)}`;
     updateClientLockState();
     updateCartPaginationControls();
     return;
@@ -311,6 +397,7 @@ function renderCartTable() {
     const totalMarginTonText = totalMarginTon === null || Number.isNaN(totalMarginTon)
       ? "-"
       : currencyHtml(totalMarginTon);
+    const disabledAttr = isOrderEditable() ? "" : "disabled";
     tr.innerHTML = `
       <td>${item.product_label}</td>
       <td>${currencyHtml(item.table_price)}</td>
@@ -320,6 +407,7 @@ function renderCartTable() {
           class="negotiated-input"
           data-item-id="${item.product_id}"
           value="${Number(item.negotiated_price).toFixed(2).replace(".", ",")}"
+          ${disabledAttr}
         >
       </td>
       <td>
@@ -330,6 +418,7 @@ function renderCartTable() {
           min="1"
           step="1"
           value="${Number(item.quantity || 1)}"
+          ${disabledAttr}
         >
       </td>
       <td>${Number(totalWeight).toFixed(2).replace(".", ",")}</td>
@@ -337,7 +426,7 @@ function renderCartTable() {
       <td>${marginText}</td>
       <td>${totalMarginTonText}</td>
       <td>
-        <button type="button" class="remove-item remove-icon-btn" data-item-id="${item.product_id}" aria-label="Remover item">
+        <button type="button" class="remove-item remove-icon-btn" data-item-id="${item.product_id}" aria-label="Remover item" ${disabledAttr}>
           <span aria-hidden="true">-</span>
         </button>
       </td>
@@ -346,16 +435,16 @@ function renderCartTable() {
   });
 
   const totals = getCartFormulaTotals();
-  cartTotalWeight.textContent = `Peso Total: ${totals.totalWeight.toFixed(2).replace(".", ",")}`;
+  const displayedTotalMargin = getDisplayedTotalMargin(totals);
+  cartTotalWeight.textContent = `Peso Total (kg): ${totals.totalWeight.toFixed(2).replace(".", ",")}`;
   cartTotal.innerHTML = `Valor Total: ${currencyHtml(totals.totalValue)}`;
-  cartTotalMargin.innerHTML = `Margem Total: ${currencyHtml(totals.totalMargin)}`;
-  cartTotalMarginTon.innerHTML = `Margem Total (T): ${currencyHtml(totals.totalMarginTon)}`;
+  cartTotalMargin.innerHTML = `Margem Total (R$/kg): ${currencyHtml(displayedTotalMargin)}`;
   updateClientLockState();
   updateCartPaginationControls();
 }
 
 function renderClientSuggestions(query) {
-  if (cartItems.length > 0) {
+  if (!isOrderEditable() || cartItems.length > 0) {
     hideSuggestions(clientSuggestions);
     return;
   }
@@ -383,6 +472,16 @@ function renderClientSuggestions(query) {
 }
 
 function renderProductSuggestions(query) {
+  if (!isOrderEditable()) {
+    hideSuggestions(productSuggestions);
+    return;
+  }
+
+  if (!currentOrderRegional) {
+    hideSuggestions(productSuggestions);
+    return;
+  }
+
   const normalized = query.trim().toLowerCase();
   if (!normalized) {
     hideSuggestions(productSuggestions);
@@ -392,8 +491,11 @@ function renderProductSuggestions(query) {
   const matched = products
     .filter(
       (product) =>
-        product.name.toLowerCase().includes(normalized) ||
-        product.product_code.toLowerCase().includes(normalized)
+        product.regional === currentOrderRegional &&
+        (
+          product.name.toLowerCase().includes(normalized) ||
+          product.product_code.toLowerCase().includes(normalized)
+        )
     )
     .slice(0, 10);
 
@@ -450,6 +552,11 @@ async function loadProfile() {
   document.getElementById("profileName").value = currentProfile.display_name;
   document.getElementById("profileRole").value = currentProfile.role;
   document.getElementById("profileRegional").value = currentProfile.regional;
+  if (!currentOrderRegional) {
+    currentOrderRegional = currentProfile.regional || "";
+    orderRegionalSelect.value = currentOrderRegional;
+  }
+  updateProductInputPlaceholder();
   renderWelcome();
 }
 
@@ -518,7 +625,8 @@ async function loadClients() {
   const supabase = window.supabaseClient;
   const { data, error } = await supabase
     .from("clients")
-    .select("id, name")
+    .select("id, name, email, phone, payment_term, price_table, billing_unit")
+    .eq("user_id", currentUser.id)
     .order("name", { ascending: true });
 
   if (error) {
@@ -535,6 +643,7 @@ async function loadProducts() {
   const { data, error } = await supabase
     .from("products")
     .select("*")
+    .eq("user_id", currentUser.id)
     .order("name", { ascending: true });
 
   if (error) {
@@ -547,6 +656,7 @@ async function loadProducts() {
 }
 
 function selectClient(clientId) {
+  if (!isOrderEditable()) return;
   const selected = clients.find((item) => item.id === clientId);
   if (!selected) return;
 
@@ -562,14 +672,25 @@ function selectClient(clientId) {
 }
 
 function addProductToCart(productId) {
+  if (!isOrderEditable()) return;
   if (!currentOrderClientId) {
     alert("Selecione um cliente antes de adicionar itens.");
+    return;
+  }
+
+  if (!currentOrderRegional) {
+    alert("Selecione a regional dos itens antes de adicionar produtos.");
     return;
   }
 
   const product = products.find((item) => item.id === productId);
   if (!product) {
     alert("Produto nao encontrado.");
+    return;
+  }
+
+  if (product.regional !== currentOrderRegional) {
+    alert("Este produto pertence a outra regional.");
     return;
   }
 
@@ -600,6 +721,7 @@ function addProductToCart(productId) {
 }
 
 function removeCartItem(productId) {
+  if (!isOrderEditable()) return;
   cartItems = cartItems.filter((item) => item.product_id !== productId);
   if (cartItems.length === 0) {
     currentOrderClientId = null;
@@ -611,6 +733,7 @@ function removeCartItem(productId) {
 }
 
 function updateNegotiatedPrice(productId, rawValue) {
+  if (!isOrderEditable()) return;
   const parsedValue = parsePtBrNumber(rawValue);
   if (parsedValue === null || Number.isNaN(parsedValue) || parsedValue < 0) {
     return;
@@ -623,6 +746,7 @@ function updateNegotiatedPrice(productId, rawValue) {
 }
 
 function updateQuantity(productId, rawValue) {
+  if (!isOrderEditable()) return;
   const parsed = Number(rawValue);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     return;
@@ -634,19 +758,26 @@ function updateQuantity(productId, rawValue) {
   renderCartTable();
 }
 
-async function finalizeOrder() {
-  const supabase = window.supabaseClient;
+function validateEditableOrderBase() {
+  if (!isOrderEditable()) {
+    alert("Este pedido nao pode mais ser alterado.");
+    return false;
+  }
 
   if (!currentOrderClientId) {
     alert("Selecione um cliente para o pedido.");
-    return;
+    return false;
   }
 
-  if (cartItems.length === 0) {
-    alert("Adicione itens ao pedido antes de finalizar.");
-    return;
+  if (!currentOrderRegional) {
+    alert("Selecione a regional do pedido.");
+    return false;
   }
 
+  return true;
+}
+
+function validateItemsForSave() {
   const hasInvalidNegotiatedPrice = cartItems.some(
     (item) => Number.isNaN(Number(item.negotiated_price)) || Number(item.negotiated_price) < 0
   );
@@ -656,95 +787,298 @@ async function finalizeOrder() {
 
   if (hasInvalidNegotiatedPrice) {
     alert("Existe item com preco negociado invalido.");
-    return;
+    return false;
   }
   if (hasInvalidQuantity) {
     alert("Existe item com quantidade invalida.");
+    return false;
+  }
+
+  return true;
+}
+
+async function persistOrderDraft() {
+  const supabase = window.supabaseClient;
+  const total = getCartTotal();
+
+  if (!validateEditableOrderBase()) {
+    return null;
+  }
+
+  if (!validateItemsForSave()) {
+    return null;
+  }
+
+  if (!currentOrderId) {
+    let orderRow = null;
+    let orderError = null;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      let identity;
+      try {
+        identity = await generateNextOrderIdentity();
+      } catch (error) {
+        console.error("Erro ao gerar identidade do pedido:", error);
+        alert("Nao foi possivel gerar o ID do pedido. Verifique a regional do perfil.");
+        return null;
+      }
+
+      const orderPayload = {
+        user_id: currentUser.id,
+        client_id: currentOrderClientId,
+        regional: identity.regional,
+        order_seq: identity.orderSeq,
+        order_code: identity.orderCode,
+        total,
+        status: "em_criacao",
+      };
+
+      const response = await supabase
+        .from("orders")
+        .insert(orderPayload)
+        .select("id, order_code, status")
+        .single();
+
+      orderRow = response.data || null;
+      orderError = response.error || null;
+
+      if (!orderError) {
+        break;
+      }
+
+      if (orderError.code !== "23505") {
+        break;
+      }
+    }
+
+    if (orderError || !orderRow) {
+      console.error("Erro ao salvar pedido:", orderError);
+      alert("Nao foi possivel salvar o pedido.");
+      return null;
+    }
+
+    currentOrderId = orderRow.id;
+    currentOrderCode = orderRow.order_code;
+    currentOrderStatus = orderRow.status || "em_criacao";
+  } else {
+    const { data: updatedOrder, error: updateOrderError } = await supabase
+      .from("orders")
+      .update({
+        client_id: currentOrderClientId,
+        regional: currentOrderRegional,
+        total,
+      })
+      .eq("id", currentOrderId)
+      .eq("user_id", currentUser.id)
+      .in("status", ["em_criacao", "aberto"])
+      .select("id, order_code, status")
+      .single();
+
+    if (updateOrderError || !updatedOrder) {
+      console.error("Erro ao atualizar pedido:", updateOrderError);
+      alert("Nao foi possivel atualizar o pedido. Ele pode nao estar mais em criacao.");
+      return null;
+    }
+
+    currentOrderCode = updatedOrder.order_code;
+    currentOrderStatus = updatedOrder.status || "em_criacao";
+  }
+
+  const { error: deleteItemsError } = await supabase
+    .from("order_items")
+    .delete()
+    .eq("order_id", currentOrderId);
+
+  if (deleteItemsError) {
+    console.error("Erro ao atualizar itens do pedido:", deleteItemsError);
+    alert("Nao foi possivel atualizar itens do pedido.");
+    return null;
+  }
+
+  if (cartItems.length > 0) {
+    const itemsPayload = cartItems.map((item) => ({
+      order_id: currentOrderId,
+      product_id: item.product_id,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.negotiated_price),
+    }));
+
+    const { error: itemInsertError } = await supabase.from("order_items").insert(itemsPayload);
+    if (itemInsertError) {
+      console.error("Erro ao salvar itens do pedido:", itemInsertError);
+      alert("Pedido salvo, mas houve erro ao salvar os itens.");
+      return null;
+    }
+  }
+
+  updateOrderHeader();
+  updateInputLockState();
+  return {
+    id: currentOrderId,
+    order_code: currentOrderCode,
+    status: currentOrderStatus,
+    regional: currentOrderRegional || "-",
+  };
+}
+
+async function saveOrderDraft() {
+  const order = await persistOrderDraft();
+  if (!order) return;
+  alert(`Pedido ${order.order_code} salvo em criacao.`);
+}
+
+async function finalizeOrder() {
+  const supabase = window.supabaseClient;
+
+  if (cartItems.length === 0) {
+    alert("Adicione itens ao pedido antes de finalizar.");
     return;
   }
 
-  const total = getCartTotal();
+  const order = await persistOrderDraft();
+  if (!order) return;
+
+  const { data: finalizedOrder, error: finalizeError } = await supabase
+    .from("orders")
+    .update({ status: "finalizado" })
+    .eq("id", order.id)
+    .eq("user_id", currentUser.id)
+    .in("status", ["em_criacao", "aberto"])
+    .select("id, order_code, regional, status")
+    .single();
+
+  if (finalizeError || !finalizedOrder) {
+    console.error("Erro ao finalizar pedido:", finalizeError);
+    alert("Nao foi possivel finalizar pedido.");
+    return;
+  }
+
   const selectedClient = getSelectedClient();
   const itemsSnapshot = cartItems.map((item) => ({ ...item }));
   const totalsSnapshot = getCartFormulaTotals();
-  let orderRow = null;
-  let orderError = null;
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    let identity;
-    try {
-      identity = await generateNextOrderIdentity();
-    } catch (error) {
-      console.error("Erro ao gerar identidade do pedido:", error);
-      alert("Nao foi possivel gerar o ID do pedido. Verifique a regional do perfil.");
-      return;
-    }
-
-    const orderPayload = {
-      user_id: currentUser.id,
-      client_id: currentOrderClientId,
-      regional: identity.regional,
-      order_seq: identity.orderSeq,
-      order_code: identity.orderCode,
-      total,
-      status: "aberto",
-    };
-
-    const response = await supabase
-      .from("orders")
-      .insert(orderPayload)
-      .select("id, order_code, regional")
-      .single();
-
-    orderRow = response.data || null;
-    orderError = response.error || null;
-
-    if (!orderError) {
-      break;
-    }
-
-    if (orderError.code !== "23505") {
-      break;
-    }
-  }
-
-  if (orderError || !orderRow) {
-    console.error("Erro ao salvar pedido:", orderError);
-    alert("Nao foi possivel finalizar pedido. Rode o script atualizado de database_schema.sql.");
-    return;
-  }
-
-  const itemsPayload = cartItems.map((item) => ({
-    order_id: orderRow.id,
-    product_id: item.product_id,
-    quantity: item.quantity,
-    unit_price: Number(item.negotiated_price),
-  }));
-
-  const { error: itemError } = await supabase.from("order_items").insert(itemsPayload);
-
-  if (itemError) {
-    console.error("Erro ao salvar itens do pedido:", itemError);
-    alert("Pedido criado, mas houve erro ao salvar os itens.");
-    return;
-  }
+  currentOrderStatus = "finalizado";
+  updateOrderHeader();
+  updateInputLockState();
+  renderCartTable();
 
   try {
-    downloadOrderPdf(orderRow, selectedClient?.name || "-", itemsSnapshot, totalsSnapshot);
+    downloadOrderPdf(finalizedOrder, selectedClient?.name || "-", itemsSnapshot, totalsSnapshot);
   } catch (error) {
     console.error("Erro ao gerar PDF do pedido:", error);
   }
 
-  cartItems = [];
-  currentOrderClientId = null;
-  cartCurrentPage = 1;
-  clientSearchInput.value = "";
-  productSearchInput.value = "";
-  hideSuggestions(clientSuggestions);
-  hideSuggestions(productSuggestions);
-  updateClientLockState();
+  alert(`Pedido ${finalizedOrder.order_code} finalizado com sucesso.`);
+}
+
+async function cancelOrder() {
+  const supabase = window.supabaseClient;
+
+  if (!currentOrderId) {
+    alert("Salve o pedido antes de cancelar.");
+    return;
+  }
+
+  if (!isOrderEditable()) {
+    alert("Este pedido nao pode mais ser cancelado.");
+    return;
+  }
+
+  if (!window.confirm("Deseja realmente cancelar este pedido?")) return;
+
+  const { data, error } = await supabase
+    .from("orders")
+    .update({ status: "cancelado" })
+    .eq("id", currentOrderId)
+    .eq("user_id", currentUser.id)
+    .in("status", ["em_criacao", "aberto"])
+    .select("id, order_code, status")
+    .single();
+
+  if (error || !data) {
+    console.error("Erro ao cancelar pedido:", error);
+    alert("Nao foi possivel cancelar o pedido.");
+    return;
+  }
+
+  currentOrderStatus = "cancelado";
+  updateOrderHeader();
+  updateInputLockState();
   renderCartTable();
-  alert(`Pedido ${orderRow.order_code} finalizado com sucesso.`);
+  alert(`Pedido ${data.order_code} cancelado.`);
+}
+
+function resolveOrderIdFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("orderId") || "";
+}
+
+async function loadOrderForEditIfNeeded() {
+  const supabase = window.supabaseClient;
+  const orderId = resolveOrderIdFromQuery().trim();
+  if (!orderId) {
+    updateOrderHeader();
+    updateInputLockState();
+    return;
+  }
+
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .select("id, order_code, client_id, regional, status")
+    .eq("id", orderId)
+    .eq("user_id", currentUser.id)
+    .single();
+
+  if (orderError || !order) {
+    console.error("Erro ao carregar pedido para edicao:", orderError);
+    alert("Nao foi possivel carregar o pedido para edicao.");
+    window.location.href = "orders-consult.html";
+    return;
+  }
+
+  currentOrderId = order.id;
+  currentOrderCode = order.order_code;
+  currentOrderClientId = order.client_id;
+  currentOrderRegional = order.regional || "";
+  orderRegionalSelect.value = currentOrderRegional;
+  updateProductInputPlaceholder();
+  currentOrderStatus = order.status || "em_criacao";
+
+  const { data: items, error: itemsError } = await supabase
+    .from("order_items")
+    .select("product_id, quantity, unit_price, products(product_code, name, weight, price_table, price_margin_zero, variable_value)")
+    .eq("order_id", currentOrderId);
+
+  if (itemsError) {
+    console.error("Erro ao carregar itens do pedido:", itemsError);
+    alert("Nao foi possivel carregar os itens do pedido.");
+    window.location.href = "orders-consult.html";
+    return;
+  }
+
+  cartItems = (items || []).map((row) => {
+    const product = row.products || {};
+    return {
+      client_id: currentOrderClientId,
+      product_id: row.product_id,
+      product_label: `${product.product_code || "-"} - ${product.name || "-"}`,
+      table_price: Number(product.price_table || 0),
+      margin_zero_price: Number(product.price_margin_zero || 0),
+      variable_value: Number(product.variable_value || 0),
+      negotiated_price: Number(row.unit_price || 0),
+      unit_weight: Number(product.weight || 0),
+      quantity: Number(row.quantity || 1),
+    };
+  });
+
+  const selectedClient = getSelectedClient();
+  if (selectedClient) {
+    clientSearchInput.value = selectedClient.name;
+  }
+
+  updateOrderHeader();
+  updateInputLockState();
+  renderCartTable();
 }
 
 async function logout() {
@@ -760,7 +1094,9 @@ async function logout() {
 
 function bindEvents() {
   document.getElementById("saveProfileButton").addEventListener("click", saveProfile);
+  document.getElementById("saveOrderButton").addEventListener("click", saveOrderDraft);
   document.getElementById("finalizeOrderButton").addEventListener("click", finalizeOrder);
+  document.getElementById("cancelOrderButton").addEventListener("click", cancelOrder);
   document.getElementById("logoutButton").addEventListener("click", logout);
 
   clientSearchInput.addEventListener("input", (event) => {
@@ -775,6 +1111,11 @@ function bindEvents() {
   });
   productSearchInput.addEventListener("focus", (event) => {
     renderProductSuggestions(event.target.value);
+  });
+
+  orderRegionalSelect.addEventListener("change", (event) => {
+    setOrderRegional(event.target.value);
+    renderProductSuggestions(productSearchInput.value);
   });
 
   document.addEventListener("click", (event) => {
@@ -832,6 +1173,7 @@ function bindEvents() {
 
 async function initDashboard() {
   bindEvents();
+  updateProductInputPlaceholder();
 
   currentUser = await getSessionUser();
   if (!currentUser) return;
@@ -839,6 +1181,8 @@ async function initDashboard() {
   await loadProfile();
   await loadClients();
   await loadProducts();
+  await loadOrderForEditIfNeeded();
+  updateOrderHeader();
   updateClientLockState();
   renderCartTable();
 }

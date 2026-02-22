@@ -1,8 +1,19 @@
-﻿let currentUser = null;
+let currentUser = null;
 let currentPage = 1;
 const pageSize = 10;
 let totalRows = 0;
-let currentSearch = "";
+let filters = {
+  search: "",
+  status: "",
+  regional: "",
+  dateFrom: "",
+  dateTo: "",
+};
+let currentPreviewBlobUrl = null;
+
+const pdfPreviewModal = document.getElementById("pdfPreviewModal");
+const pdfPreviewFrame = document.getElementById("pdfPreviewFrame");
+const closePdfPreviewButton = document.getElementById("closePdfPreviewButton");
 
 function setFeedback(message, isError) {
   const feedback = document.getElementById("consultFeedback");
@@ -37,6 +48,20 @@ function formatDateTimeBR(isoDate) {
   return new Date(isoDate).toLocaleString("pt-BR");
 }
 
+function getStatusLabel(status) {
+  if (status === "aberto") return "Em criacao";
+  if (status === "em_criacao") return "Em criacao";
+  if (status === "finalizado") return "Finalizado";
+  if (status === "cancelado") return "Cancelado";
+  return status || "-";
+}
+
+function statusChipHtml(status) {
+  const statusClass = status === "aberto" ? "em_criacao" : (status || "unknown");
+  const className = `status-chip status-${statusClass}`;
+  return `<span class="${className}">${getStatusLabel(status)}</span>`;
+}
+
 function getItemMargin(item) {
   const product = item.products || {};
   const priceTable = Number(product.price_table || 0);
@@ -50,7 +75,29 @@ function getItemMargin(item) {
   return (negotiatedPrice - marginZeroPrice) * baseMargin;
 }
 
-function downloadOrderPdf(order, items) {
+function closePdfPreview() {
+  if (currentPreviewBlobUrl) {
+    URL.revokeObjectURL(currentPreviewBlobUrl);
+    currentPreviewBlobUrl = null;
+  }
+
+  pdfPreviewFrame.removeAttribute("src");
+  pdfPreviewModal.classList.add("hidden");
+  pdfPreviewModal.setAttribute("aria-hidden", "true");
+}
+
+function openPdfPreview(blob) {
+  if (currentPreviewBlobUrl) {
+    URL.revokeObjectURL(currentPreviewBlobUrl);
+  }
+
+  currentPreviewBlobUrl = URL.createObjectURL(blob);
+  pdfPreviewFrame.src = currentPreviewBlobUrl;
+  pdfPreviewModal.classList.remove("hidden");
+  pdfPreviewModal.setAttribute("aria-hidden", "false");
+}
+
+function previewOrderPdf(order, items) {
   if (!window.jspdf || !window.jspdf.jsPDF) {
     setFeedback("Biblioteca de PDF nao carregou.", true);
     return;
@@ -88,13 +135,15 @@ function downloadOrderPdf(order, items) {
   pdf.text(`Cliente: ${order.client_name || "-"}`, 14, y);
   y += 5;
   pdf.text(`Data: ${formatDateTimeBR(order.created_at)}`, 14, y);
+  y += 5;
+  pdf.text(`Status: ${getStatusLabel(order.status)}`, 14, y);
   y += 8;
 
   pdf.text("Produto", 14, y);
   pdf.text("Qtd", 95, y);
-  pdf.text("Peso Tot.", 112, y);
+  pdf.text("Peso Tot. (kg)", 112, y);
   pdf.text("Vlr Tot.", 138, y);
-  pdf.text("Margem", 164, y);
+  pdf.text("Margem (R$/kg)", 164, y);
   pdf.text("Margem T", 186, y);
   y += 2;
   pdf.line(14, y, 196, y);
@@ -126,15 +175,17 @@ function downloadOrderPdf(order, items) {
   y += 4;
   pdf.line(14, y, 196, y);
   y += 6;
-  pdf.text(`Peso Total: ${numberBR(totals.totalWeight)}`, 14, y);
+  const totalMarginPerKg = totals.totalWeight > 0 ? totals.totalMarginTon / totals.totalWeight : 0;
+  pdf.text(`Peso Total (kg): ${numberBR(totals.totalWeight)}`, 14, y);
   y += 5;
   pdf.text(`Valor Total: ${moneyBRL(totals.totalValue)}`, 14, y);
   y += 5;
-  pdf.text(`Margem Total: ${moneyBRL(totals.totalMargin)}`, 14, y);
+  pdf.text(`Margem Total (R$/kg): ${moneyBRL(totalMarginPerKg)}`, 14, y);
   y += 5;
   pdf.text(`Margem Total (T): ${moneyBRL(totals.totalMarginTon)}`, 14, y);
 
-  pdf.save(`${order.order_code}.pdf`);
+  const pdfBlob = pdf.output("blob");
+  openPdfPreview(pdfBlob);
 }
 
 async function getSessionUser() {
@@ -160,6 +211,23 @@ function updatePaginationControls() {
   document.getElementById("nextPageButton").disabled = currentPage >= totalPages;
 }
 
+function renderOrderActions(order) {
+  const editable = order.status === "em_criacao" || order.status === "aberto";
+  const cancellable = editable || order.status === "finalizado";
+  const editDisabled = !editable ? "disabled" : "";
+  const finalizeDisabled = !editable ? "disabled" : "";
+  const cancelDisabled = !cancellable ? "disabled" : "";
+
+  return `
+    <div class="order-actions">
+      <button type="button" class="icon-btn" data-action="edit" data-order-id="${order.id}" title="Editar pedido" aria-label="Editar pedido" ${editDisabled}>&#9998;</button>
+      <button type="button" class="icon-btn" data-action="finalize" data-order-id="${order.id}" title="Finalizar pedido" aria-label="Finalizar pedido" ${finalizeDisabled}>&#10003;</button>
+      <button type="button" class="icon-btn danger" data-action="cancel" data-order-id="${order.id}" title="Cancelar pedido" aria-label="Cancelar pedido" ${cancelDisabled}>&#10005;</button>
+      <button type="button" class="icon-btn" data-action="pdf" data-order-id="${order.id}" title="Pre-visualizar PDF" aria-label="Pre-visualizar PDF">&#128065;</button>
+    </div>
+  `;
+}
+
 function renderOrdersTable(rows) {
   const tableBody = document.getElementById("ordersTableBody");
   tableBody.innerHTML = "";
@@ -176,14 +244,42 @@ function renderOrdersTable(rows) {
       <td>${order.regional || "-"}</td>
       <td>${order.client_name || "-"}</td>
       <td>${currencyHtml(order.total)}</td>
-      <td>${order.status || "-"}</td>
+      <td>${statusChipHtml(order.status)}</td>
       <td>${formatDateTimeBR(order.created_at)}</td>
-      <td>
-        <button type="button" class="small-btn" data-order-id="${order.id}">PDF</button>
-      </td>
+      <td>${renderOrderActions(order)}</td>
     `;
     tableBody.appendChild(tr);
   });
+}
+
+function applyFiltersToQuery(query) {
+  let updatedQuery = query;
+
+  if (filters.search) {
+    updatedQuery = updatedQuery.ilike("order_code", `%${filters.search}%`);
+  }
+
+  if (filters.status) {
+    if (filters.status === "em_criacao") {
+      updatedQuery = updatedQuery.in("status", ["em_criacao", "aberto"]);
+    } else {
+      updatedQuery = updatedQuery.eq("status", filters.status);
+    }
+  }
+
+  if (filters.regional) {
+    updatedQuery = updatedQuery.eq("regional", filters.regional);
+  }
+
+  if (filters.dateFrom) {
+    updatedQuery = updatedQuery.gte("created_at", `${filters.dateFrom}T00:00:00`);
+  }
+
+  if (filters.dateTo) {
+    updatedQuery = updatedQuery.lte("created_at", `${filters.dateTo}T23:59:59`);
+  }
+
+  return updatedQuery;
 }
 
 async function loadOrders() {
@@ -196,9 +292,7 @@ async function loadOrders() {
     .select("id, order_code, regional, total, status, created_at, clients(name)", { count: "exact" })
     .eq("user_id", currentUser.id);
 
-  if (currentSearch) {
-    query = query.ilike("order_code", `%${currentSearch}%`);
-  }
+  query = applyFiltersToQuery(query);
 
   const { data, error, count } = await query
     .order("created_at", { ascending: false })
@@ -247,7 +341,7 @@ async function generatePdfByOrderId(orderId) {
     return;
   }
 
-  downloadOrderPdf(
+  previewOrderPdf(
     {
       ...order,
       client_name: order.clients?.name || "-",
@@ -256,8 +350,68 @@ async function generatePdfByOrderId(orderId) {
   );
 }
 
+async function updateOrderStatus(orderId, targetStatus) {
+  const supabase = window.supabaseClient;
+  const message = targetStatus === "finalizado"
+    ? "Deseja realmente finalizar este pedido?"
+    : "Deseja realmente cancelar este pedido?";
+
+  if (!window.confirm(message)) return;
+
+  if (targetStatus === "finalizado") {
+    const { count, error: countError } = await supabase
+      .from("order_items")
+      .select("id", { count: "exact", head: true })
+      .eq("order_id", orderId);
+
+    if (countError) {
+      console.error("Erro ao validar itens do pedido:", countError);
+      setFeedback("Nao foi possivel validar os itens do pedido.", true);
+      return;
+    }
+
+    if (!count || count <= 0) {
+      setFeedback("Nao e possivel finalizar pedido sem itens.", true);
+      return;
+    }
+  }
+
+  const allowedCurrentStatuses = targetStatus === "cancelado"
+    ? ["em_criacao", "aberto", "finalizado"]
+    : ["em_criacao", "aberto"];
+
+  const { data, error } = await supabase
+    .from("orders")
+    .update({ status: targetStatus })
+    .eq("id", orderId)
+    .eq("user_id", currentUser.id)
+    .in("status", allowedCurrentStatuses)
+    .select("id");
+
+  if (error) {
+    console.error("Erro ao atualizar status do pedido:", error);
+    setFeedback("Nao foi possivel atualizar o status do pedido.", true);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    setFeedback("Pedido nao esta em um status permitido para essa acao.", true);
+    await loadOrders();
+    return;
+  }
+
+  setFeedback(`Pedido ${targetStatus === "finalizado" ? "finalizado" : "cancelado"} com sucesso.`, false);
+  await loadOrders();
+}
+
 function applySearch() {
-  currentSearch = document.getElementById("orderSearchInput").value.trim();
+  filters = {
+    search: document.getElementById("orderSearchInput").value.trim(),
+    status: document.getElementById("orderStatusFilter").value,
+    regional: document.getElementById("orderRegionalFilter").value,
+    dateFrom: document.getElementById("orderDateFromFilter").value,
+    dateTo: document.getElementById("orderDateToFilter").value,
+  };
   currentPage = 1;
   loadOrders();
 }
@@ -279,10 +433,15 @@ async function initOrdersConsultPage() {
 
   document.getElementById("logoutButton").addEventListener("click", logout);
   document.getElementById("orderSearchButton").addEventListener("click", applySearch);
+
   document.getElementById("orderSearchInput").addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       applySearch();
     }
+  });
+
+  ["orderStatusFilter", "orderRegionalFilter", "orderDateFromFilter", "orderDateToFilter"].forEach((id) => {
+    document.getElementById(id).addEventListener("change", applySearch);
   });
 
   document.getElementById("prevPageButton").addEventListener("click", () => {
@@ -298,15 +457,50 @@ async function initOrdersConsultPage() {
     loadOrders();
   });
 
-  document.getElementById("ordersTableBody").addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-order-id]");
+  document.getElementById("ordersTableBody").addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-order-id][data-action]");
     if (!button) return;
+
     const orderId = button.getAttribute("data-order-id");
-    if (!orderId) return;
-    generatePdfByOrderId(orderId);
+    const action = button.getAttribute("data-action");
+    if (!orderId || !action) return;
+
+    if (action === "pdf") {
+      await generatePdfByOrderId(orderId);
+      return;
+    }
+
+    if (action === "edit") {
+      window.location.href = `new-order.html?orderId=${encodeURIComponent(orderId)}`;
+      return;
+    }
+
+    if (action === "finalize") {
+      await updateOrderStatus(orderId, "finalizado");
+      return;
+    }
+
+    if (action === "cancel") {
+      await updateOrderStatus(orderId, "cancelado");
+    }
+  });
+
+  closePdfPreviewButton.addEventListener("click", closePdfPreview);
+
+  pdfPreviewModal.addEventListener("click", (event) => {
+    if (event.target === pdfPreviewModal) {
+      closePdfPreview();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !pdfPreviewModal.classList.contains("hidden")) {
+      closePdfPreview();
+    }
   });
 
   await loadOrders();
 }
 
 document.addEventListener("DOMContentLoaded", initOrdersConsultPage);
+

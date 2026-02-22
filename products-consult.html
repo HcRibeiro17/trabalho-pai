@@ -34,9 +34,19 @@
     </nav>
     <section class="list-card">
       <h2>Consultar Produtos</h2>
-      <div class="search-row">
+      <div class="search-row search-row-products">
         <input type="text" id="productSearchInput" placeholder="Buscar por ID ou nome">
+        <select id="productRegionalFilter">
+          <option value="">Todas as regionais</option>
+          <option value="ESPIRITO SANTO">ESPIRITO SANTO</option>
+          <option value="RIO DE JANEIRO">RIO DE JANEIRO</option>
+        </select>
+        <input type="text" id="productPriceMinFilter" inputmode="decimal" placeholder="Preco min (R$)">
+        <input type="text" id="productPriceMaxFilter" inputmode="decimal" placeholder="Preco max (R$)">
+        <input type="text" id="productWeightMinFilter" inputmode="decimal" placeholder="Peso min (kg)">
+        <input type="text" id="productWeightMaxFilter" inputmode="decimal" placeholder="Peso max (kg)">
         <button type="button" id="productSearchButton">Buscar</button>
+        <button type="button" id="productClearFiltersButton">Limpar</button>
       </div>
 
       <div class="table-wrap">
@@ -45,11 +55,12 @@
             <tr>
               <th>ID</th>
               <th>Nome</th>
+              <th>Regional</th>
               <th>Preco Tabela</th>
               <th>Preco Margem 0</th>
-              <th>Peso</th>
+              <th>Peso (kg)</th>
               <th>Variavel</th>
-              <th>Margem</th>
+              <th>Margem (R$/kg)</th>
               <th></th>
             </tr>
           </thead>

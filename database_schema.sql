@@ -31,6 +31,7 @@ create table if not exists public.products (
   user_id uuid not null references auth.users(id) on delete cascade,
   product_code text not null,
   name text not null,
+  regional text not null check (regional in ('ESPIRITO SANTO', 'RIO DE JANEIRO')),
   price_table numeric(12,2) not null check (price_table >= 0),
   price_margin_zero numeric(12,2) not null check (price_margin_zero >= 0),
   weight numeric(12,2) not null check (weight >= 0),
@@ -39,13 +40,14 @@ create table if not exists public.products (
 );
 
 alter table public.products add column if not exists product_code text;
+alter table public.products add column if not exists regional text;
 alter table public.products add column if not exists price_table numeric(12,2);
 alter table public.products add column if not exists price_margin_zero numeric(12,2);
 alter table public.products add column if not exists weight numeric(12,2);
 alter table public.products add column if not exists variable_value numeric(12,2);
 
 create unique index if not exists products_user_code_uidx
-on public.products (user_id, product_code);
+on public.products (user_id, regional, product_code);
 
 do $$
 begin
@@ -79,16 +81,48 @@ update public.products
 set weight = coalesce(weight, 0),
     variable_value = coalesce(variable_value, 0);
 
+update public.products p
+set regional = coalesce(p.regional, pr.regional)
+from public.profiles pr
+where p.user_id = pr.user_id
+  and p.regional is null;
+
+update public.products
+set regional = 'ESPIRITO SANTO'
+where regional is null;
+
 update public.products
 set product_code = coalesce(product_code, id::text)
 where product_code is null;
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint c
+    join pg_class t on t.oid = c.conrelid
+    join pg_namespace n on n.oid = t.relnamespace
+    where n.nspname = 'public'
+      and t.relname = 'products'
+      and c.conname = 'products_regional_check'
+  ) then
+    alter table public.products
+      add constraint products_regional_check
+      check (regional in ('ESPIRITO SANTO', 'RIO DE JANEIRO'));
+  end if;
+end $$;
+
 alter table public.products
   alter column product_code set not null,
+  alter column regional set not null,
   alter column price_table set not null,
   alter column price_margin_zero set not null,
   alter column weight set not null,
   alter column variable_value set not null;
+
+drop index if exists products_user_code_uidx;
+create unique index if not exists products_user_code_uidx
+on public.products (user_id, regional, product_code);
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),

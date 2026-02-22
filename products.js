@@ -1,12 +1,27 @@
 let currentUser = null;
+const ALLOWED_REGIONALS = ["ESPIRITO SANTO", "RIO DE JANEIRO"];
 const csvFieldAliases = {
   product_code: ["product_code", "id", "codigo", "codigo_produto", "id_produto"],
   name: ["name", "nome", "nome_produto", "produto"],
+  regional: ["regional", "regiao", "regiao_produto"],
   price_table: ["price_table", "preco_tabela", "preco_de_tabela", "valor_tabela"],
   price_margin_zero: ["price_margin_zero", "preco_tabela_0", "preco_margem_0", "preco_zero"],
   weight: ["weight", "peso"],
   variable_value: ["variable_value", "variavel", "valor_variavel"],
 };
+
+function normalizeRegional(rawValue) {
+  const normalized = String(rawValue || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, " ");
+
+  if (normalized === "ESPIRITO SANTO") return "ESPIRITO SANTO";
+  if (normalized === "RIO DE JANEIRO") return "RIO DE JANEIRO";
+  return "";
+}
 
 function parsePtBrNumber(rawValue) {
   const cleaned = String(rawValue || "")
@@ -136,7 +151,7 @@ async function importProductsFromCsv() {
     }
   });
 
-  const requiredFields = ["product_code", "name", "price_table", "price_margin_zero", "weight", "variable_value"];
+  const requiredFields = ["product_code", "name", "regional", "price_table", "price_margin_zero", "weight", "variable_value"];
   const missingFields = requiredFields.filter((field) => {
     const aliases = csvFieldAliases[field];
     return !aliases.some((alias) => headerMap[alias] !== undefined);
@@ -156,6 +171,7 @@ async function importProductsFromCsv() {
 
     const productCode = getCsvValueByField(rawRow, headerMap, "product_code");
     const name = getCsvValueByField(rawRow, headerMap, "name");
+    const regional = normalizeRegional(getCsvValueByField(rawRow, headerMap, "regional"));
     const priceTable = parsePtBrNumber(getCsvValueByField(rawRow, headerMap, "price_table"));
     const priceMarginZero = parsePtBrNumber(getCsvValueByField(rawRow, headerMap, "price_margin_zero"));
     const weight = parsePtBrNumber(getCsvValueByField(rawRow, headerMap, "weight"));
@@ -163,6 +179,11 @@ async function importProductsFromCsv() {
 
     if (!productCode || !name) {
       errors.push(`Linha ${lineNumber}: product_code e name sao obrigatorios.`);
+      continue;
+    }
+
+    if (!regional || !ALLOWED_REGIONALS.includes(regional)) {
+      errors.push(`Linha ${lineNumber}: regional invalida. Use ESPIRITO SANTO ou RIO DE JANEIRO.`);
       continue;
     }
 
@@ -185,6 +206,7 @@ async function importProductsFromCsv() {
       user_id: currentUser.id,
       product_code: productCode,
       name,
+      regional,
       price_table: priceTable,
       price_margin_zero: priceMarginZero,
       weight,
@@ -199,7 +221,7 @@ async function importProductsFromCsv() {
 
   const { error } = await supabase
     .from("products")
-    .upsert(payload, { onConflict: "user_id,product_code" });
+    .upsert(payload, { onConflict: "user_id,regional,product_code" });
 
   if (error) {
     console.error("Erro ao importar CSV:", error);
@@ -270,6 +292,7 @@ async function saveProduct() {
   const supabase = window.supabaseClient;
   const productCode = document.getElementById("productCode").value.trim();
   const name = document.getElementById("productName").value.trim();
+  const regional = normalizeRegional(document.getElementById("productRegional").value);
   const rawPriceTable = document.getElementById("productPriceTable").value;
   const rawPriceMarginZero = document.getElementById("productPriceMarginZero").value;
   const rawWeight = document.getElementById("productWeight").value.trim();
@@ -284,6 +307,11 @@ async function saveProduct() {
 
   if (!productCode || !name) {
     setFeedback("Informe ID e nome do produto.", true);
+    return;
+  }
+
+  if (!regional || !ALLOWED_REGIONALS.includes(regional)) {
+    setFeedback("Informe a regional do produto.", true);
     return;
   }
 
@@ -316,6 +344,7 @@ async function saveProduct() {
     user_id: currentUser.id,
     product_code: productCode,
     name,
+    regional,
     price_table: priceTable,
     price_margin_zero: priceMarginZero,
     weight,
@@ -332,6 +361,7 @@ async function saveProduct() {
 
   document.getElementById("productCode").value = "";
   document.getElementById("productName").value = "";
+  document.getElementById("productRegional").value = "";
   document.getElementById("productPriceTable").value = "";
   document.getElementById("productPriceMarginZero").value = "";
   document.getElementById("productWeight").value = "";
