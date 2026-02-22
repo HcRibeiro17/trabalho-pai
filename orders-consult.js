@@ -17,6 +17,15 @@ function moneyBRL(value) {
   });
 }
 
+function currencyHtml(value) {
+  const numeric = Number(value || 0);
+  const formatted = moneyBRL(numeric);
+  if (numeric < 0) {
+    return `<span class="currency-negative">${formatted}</span>`;
+  }
+  return formatted;
+}
+
 function numberBR(value, fractionDigits = 2) {
   return Number(value || 0).toLocaleString("pt-BR", {
     minimumFractionDigits: fractionDigits,
@@ -166,7 +175,7 @@ function renderOrdersTable(rows) {
       <td>${order.order_code || "-"}</td>
       <td>${order.regional || "-"}</td>
       <td>${order.client_name || "-"}</td>
-      <td>${moneyBRL(order.total)}</td>
+      <td>${currencyHtml(order.total)}</td>
       <td>${order.status || "-"}</td>
       <td>${formatDateTimeBR(order.created_at)}</td>
       <td>

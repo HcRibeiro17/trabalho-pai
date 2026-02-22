@@ -24,6 +24,15 @@ function moneyBRL(value) {
   });
 }
 
+function currencyHtml(value) {
+  const numeric = Number(value || 0);
+  const formatted = moneyBRL(numeric);
+  if (numeric < 0) {
+    return `<span class="currency-value currency-negative">${formatted}</span>`;
+  }
+  return `<span class="currency-value">${formatted}</span>`;
+}
+
 function numberBR(value, fractionDigits = 2) {
   return Number(value || 0).toLocaleString("pt-BR", {
     minimumFractionDigits: fractionDigits,
@@ -271,9 +280,9 @@ function renderCartTable() {
   if (cartItems.length === 0) {
     tableBody.innerHTML = "<tr><td colspan='9' class='empty-cell'>Nenhum item no pedido.</td></tr>";
     cartTotalWeight.textContent = "Peso Total: 0,00";
-    cartTotal.textContent = `Valor Total: ${moneyBRL(0)}`;
-    cartTotalMargin.textContent = `Margem Total: ${moneyBRL(0)}`;
-    cartTotalMarginTon.textContent = `Margem Total (T): ${moneyBRL(0)}`;
+    cartTotal.innerHTML = `Valor Total: ${currencyHtml(0)}`;
+    cartTotalMargin.innerHTML = `Margem Total: ${currencyHtml(0)}`;
+    cartTotalMarginTon.innerHTML = `Margem Total (T): ${currencyHtml(0)}`;
     updateClientLockState();
     updateCartPaginationControls();
     return;
@@ -298,13 +307,13 @@ function renderCartTable() {
       : margin * (totalWeight / 1000);
     const marginText = margin === null || Number.isNaN(margin)
       ? "-"
-      : moneyBRL(margin);
+      : currencyHtml(margin);
     const totalMarginTonText = totalMarginTon === null || Number.isNaN(totalMarginTon)
       ? "-"
-      : moneyBRL(totalMarginTon);
+      : currencyHtml(totalMarginTon);
     tr.innerHTML = `
       <td>${item.product_label}</td>
-      <td>${moneyBRL(item.table_price)}</td>
+      <td>${currencyHtml(item.table_price)}</td>
       <td>
         <input
           type="text"
@@ -324,7 +333,7 @@ function renderCartTable() {
         >
       </td>
       <td>${Number(totalWeight).toFixed(2).replace(".", ",")}</td>
-      <td>${moneyBRL(totalValue)}</td>
+      <td>${currencyHtml(totalValue)}</td>
       <td>${marginText}</td>
       <td>${totalMarginTonText}</td>
       <td>
@@ -338,9 +347,9 @@ function renderCartTable() {
 
   const totals = getCartFormulaTotals();
   cartTotalWeight.textContent = `Peso Total: ${totals.totalWeight.toFixed(2).replace(".", ",")}`;
-  cartTotal.textContent = `Valor Total: ${moneyBRL(totals.totalValue)}`;
-  cartTotalMargin.textContent = `Margem Total: ${moneyBRL(totals.totalMargin)}`;
-  cartTotalMarginTon.textContent = `Margem Total (T): ${moneyBRL(totals.totalMarginTon)}`;
+  cartTotal.innerHTML = `Valor Total: ${currencyHtml(totals.totalValue)}`;
+  cartTotalMargin.innerHTML = `Margem Total: ${currencyHtml(totals.totalMargin)}`;
+  cartTotalMarginTon.innerHTML = `Margem Total (T): ${currencyHtml(totals.totalMarginTon)}`;
   updateClientLockState();
   updateCartPaginationControls();
 }
@@ -392,7 +401,7 @@ function renderProductSuggestions(query) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "suggestion-item";
-    button.innerHTML = `<strong>${product.product_code}</strong> ${product.name} <span>${moneyBRL(product.price_table)}</span>`;
+    button.innerHTML = `<strong>${product.product_code}</strong> ${product.name} <span>${currencyHtml(product.price_table)}</span>`;
     button.addEventListener("click", () => addProductToCart(product.id));
     return button;
   });

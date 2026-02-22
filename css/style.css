@@ -369,7 +369,7 @@ input[readonly] {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1100px;
+  min-width: 1260px;
 }
 
 .data-table th,
@@ -378,12 +378,14 @@ input[readonly] {
   border-bottom: 1px solid #e5e9f2;
   text-align: left;
   font-size: 14px;
+  vertical-align: middle;
 }
 
 .data-table th {
   background: #f9fafb;
   color: #374151;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .empty-cell {
@@ -437,11 +439,15 @@ input[readonly] {
 }
 
 .negotiated-input {
-  min-width: 110px;
+  width: 150px;
+  min-width: 150px;
+  white-space: nowrap;
 }
 
 .quantity-input {
-  min-width: 90px;
+  width: 96px;
+  min-width: 96px;
+  white-space: nowrap;
 }
 
 .modal-backdrop {
@@ -490,6 +496,43 @@ input[readonly] {
   margin: 8px 0 0;
   font-size: 13px;
   color: #374151;
+}
+
+.profile-photo-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.profile-avatar-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid #d1d5db;
+  background: #f3f4f6;
+}
+
+.section-divider {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 16px 0;
+}
+
+.csv-help {
+  margin: 0 0 10px;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.currency-negative {
+  color: #b42318;
+}
+
+.currency-value {
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .login-container {

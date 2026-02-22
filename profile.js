@@ -2,6 +2,7 @@ let currentUser = null;
 let myOrdersPage = 1;
 const myOrdersPageSize = 8;
 let myOrdersTotalRows = 0;
+let currentAvatarUrl = "";
 
 function setFeedback(message, isError) {
   const feedback = document.getElementById("profileFeedback");
@@ -20,6 +21,15 @@ function moneyBRL(value) {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function currencyHtml(value) {
+  const numeric = Number(value || 0);
+  const formatted = moneyBRL(numeric);
+  if (numeric < 0) {
+    return `<span class="currency-negative">${formatted}</span>`;
+  }
+  return formatted;
 }
 
 function formatDateTimeBR(isoDate) {
@@ -48,7 +58,7 @@ async function loadProfile() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("display_name, role, regional")
+    .select("display_name, role, regional, avatar_url")
     .eq("user_id", currentUser.id)
     .maybeSingle();
 
@@ -61,6 +71,53 @@ async function loadProfile() {
   document.getElementById("profileName").value = data?.display_name || "";
   document.getElementById("profileRole").value = data?.role || "";
   document.getElementById("profileRegional").value = data?.regional || "";
+  currentAvatarUrl = data?.avatar_url || "";
+  renderAvatarPreview();
+}
+
+function renderAvatarPreview() {
+  const img = document.getElementById("profileAvatarPreview");
+  if (currentAvatarUrl) {
+    img.src = currentAvatarUrl;
+    return;
+  }
+
+  img.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='128' height='128'><rect width='100%' height='100%' fill='%23f3f4f6'/><circle cx='64' cy='48' r='24' fill='%239ca3af'/><rect x='28' y='82' width='72' height='28' rx='14' fill='%239ca3af'/></svg>";
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Falha ao ler arquivo da foto."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleAvatarFileChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    setFeedback("Selecione um arquivo de imagem valido.", true);
+    event.target.value = "";
+    return;
+  }
+
+  if (file.size > 1024 * 1024) {
+    setFeedback("A foto deve ter no maximo 1MB.", true);
+    event.target.value = "";
+    return;
+  }
+
+  try {
+    currentAvatarUrl = await readFileAsDataUrl(file);
+    renderAvatarPreview();
+    setFeedback("", false);
+  } catch (error) {
+    console.error("Erro ao processar foto de perfil:", error);
+    setFeedback("Nao foi possivel processar a foto.", true);
+  }
 }
 
 function renderMyOrdersTable(rows) {
@@ -77,7 +134,7 @@ function renderMyOrdersTable(rows) {
     tr.innerHTML = `
       <td>${order.order_code || "-"}</td>
       <td>${order.clients?.name || "-"}</td>
-      <td>${moneyBRL(order.total)}</td>
+      <td>${currencyHtml(order.total)}</td>
       <td>${order.status || "-"}</td>
       <td>${formatDateTimeBR(order.created_at)}</td>
     `;
@@ -152,6 +209,7 @@ async function saveProfile() {
     display_name: name,
     role,
     regional,
+    avatar_url: currentAvatarUrl || null,
     updated_at: new Date().toISOString(),
   };
 
@@ -185,6 +243,7 @@ async function initProfilePage() {
 
   document.getElementById("saveProfileButton").addEventListener("click", saveProfile);
   document.getElementById("logoutButton").addEventListener("click", logout);
+  document.getElementById("profileAvatarFile").addEventListener("change", handleAvatarFileChange);
   document.getElementById("myOrdersPrevPageButton").addEventListener("click", () => {
     if (myOrdersPage <= 1) return;
     myOrdersPage -= 1;

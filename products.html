@@ -65,6 +65,16 @@
       <p id="productComputedMarginInfo" class="computed-margin">Margem calculada: -</p>
       <p id="productFeedback" class="form-feedback"></p>
       <button type="button" id="saveProductButton">Salvar produto</button>
+
+      <hr class="section-divider">
+      <h3>Importar CSV</h3>
+      <p class="csv-help">Campos obrigatorios: <code>product_code,name,price_table,price_margin_zero,weight,variable_value</code></p>
+      <label>
+        Arquivo CSV
+        <input type="file" id="productsCsvFile" accept=".csv,text/csv">
+      </label>
+      <button type="button" id="importProductsCsvButton">Importar CSV</button>
+      <p id="productCsvFeedback" class="form-feedback"></p>
     </section>
   </main>
 </body>

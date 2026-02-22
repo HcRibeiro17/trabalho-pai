@@ -1,4 +1,12 @@
 let currentUser = null;
+const csvFieldAliases = {
+  product_code: ["product_code", "id", "codigo", "codigo_produto", "id_produto"],
+  name: ["name", "nome", "nome_produto", "produto"],
+  price_table: ["price_table", "preco_tabela", "preco_de_tabela", "valor_tabela"],
+  price_margin_zero: ["price_margin_zero", "preco_tabela_0", "preco_margem_0", "preco_zero"],
+  weight: ["weight", "peso"],
+  variable_value: ["variable_value", "variavel", "valor_variavel"],
+};
 
 function parsePtBrNumber(rawValue) {
   const cleaned = String(rawValue || "")
@@ -17,6 +25,193 @@ function setFeedback(message, isError) {
   const feedback = document.getElementById("productFeedback");
   feedback.textContent = message || "";
   feedback.classList.toggle("error", Boolean(isError));
+}
+
+function setCsvFeedback(message, isError) {
+  const feedback = document.getElementById("productCsvFeedback");
+  feedback.textContent = message || "";
+  feedback.classList.toggle("error", Boolean(isError));
+}
+
+function normalizeHeader(header) {
+  return String(header || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^\w]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+function parseCsvText(csvText) {
+  const text = String(csvText || "").replace(/^\uFEFF/, "");
+  const firstLine = text.split(/\r?\n/, 1)[0] || "";
+  const delimiter = firstLine.includes(";") ? ";" : ",";
+  const rows = [];
+  let row = [];
+  let value = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+
+    if (char === "\"") {
+      if (inQuotes && text[i + 1] === "\"") {
+        value += "\"";
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (!inQuotes && char === delimiter) {
+      row.push(value);
+      value = "";
+      continue;
+    }
+
+    if (!inQuotes && (char === "\n" || char === "\r")) {
+      if (char === "\r" && text[i + 1] === "\n") {
+        i += 1;
+      }
+      row.push(value);
+      rows.push(row);
+      row = [];
+      value = "";
+      continue;
+    }
+
+    value += char;
+  }
+
+  row.push(value);
+  rows.push(row);
+  return rows.filter((entry) => entry.some((cell) => String(cell || "").trim() !== ""));
+}
+
+function getCsvValueByField(rawRow, headerMap, canonicalField) {
+  const aliases = csvFieldAliases[canonicalField] || [];
+  for (const alias of aliases) {
+    const index = headerMap[alias];
+    if (index === undefined) continue;
+    return String(rawRow[index] || "").trim();
+  }
+  return "";
+}
+
+async function importProductsFromCsv() {
+  const supabase = window.supabaseClient;
+  const fileInput = document.getElementById("productsCsvFile");
+  const file = fileInput.files?.[0];
+
+  setCsvFeedback("", false);
+
+  if (!file) {
+    setCsvFeedback("Selecione um arquivo CSV.", true);
+    return;
+  }
+
+  let csvText = "";
+  try {
+    csvText = await file.text();
+  } catch (error) {
+    console.error("Erro ao ler CSV:", error);
+    setCsvFeedback("Nao foi possivel ler o arquivo CSV.", true);
+    return;
+  }
+
+  const rows = parseCsvText(csvText);
+  if (rows.length < 2) {
+    setCsvFeedback("CSV vazio ou sem linhas de dados.", true);
+    return;
+  }
+
+  const rawHeaders = rows[0].map((item) => normalizeHeader(item));
+  const headerMap = {};
+  rawHeaders.forEach((header, index) => {
+    if (!(header in headerMap)) {
+      headerMap[header] = index;
+    }
+  });
+
+  const requiredFields = ["product_code", "name", "price_table", "price_margin_zero", "weight", "variable_value"];
+  const missingFields = requiredFields.filter((field) => {
+    const aliases = csvFieldAliases[field];
+    return !aliases.some((alias) => headerMap[alias] !== undefined);
+  });
+
+  if (missingFields.length > 0) {
+    setCsvFeedback(`CSV sem colunas obrigatorias: ${missingFields.join(", ")}`, true);
+    return;
+  }
+
+  const payload = [];
+  const errors = [];
+
+  for (let i = 1; i < rows.length; i += 1) {
+    const lineNumber = i + 1;
+    const rawRow = rows[i];
+
+    const productCode = getCsvValueByField(rawRow, headerMap, "product_code");
+    const name = getCsvValueByField(rawRow, headerMap, "name");
+    const priceTable = parsePtBrNumber(getCsvValueByField(rawRow, headerMap, "price_table"));
+    const priceMarginZero = parsePtBrNumber(getCsvValueByField(rawRow, headerMap, "price_margin_zero"));
+    const weight = parsePtBrNumber(getCsvValueByField(rawRow, headerMap, "weight"));
+    const variableValue = parsePtBrNumber(getCsvValueByField(rawRow, headerMap, "variable_value"));
+
+    if (!productCode || !name) {
+      errors.push(`Linha ${lineNumber}: product_code e name sao obrigatorios.`);
+      continue;
+    }
+
+    if (
+      priceTable === null || Number.isNaN(priceTable) || priceTable < 0 ||
+      priceMarginZero === null || Number.isNaN(priceMarginZero) || priceMarginZero < 0 ||
+      weight === null || Number.isNaN(weight) || weight < 0 ||
+      variableValue === null || Number.isNaN(variableValue) || variableValue < 0
+    ) {
+      errors.push(`Linha ${lineNumber}: campos numericos invalidos.`);
+      continue;
+    }
+
+    if (priceTable - priceMarginZero === 0) {
+      errors.push(`Linha ${lineNumber}: preco_tabela e preco_tabela_0 nao podem ter diferenca zero.`);
+      continue;
+    }
+
+    payload.push({
+      user_id: currentUser.id,
+      product_code: productCode,
+      name,
+      price_table: priceTable,
+      price_margin_zero: priceMarginZero,
+      weight,
+      variable_value: variableValue,
+    });
+  }
+
+  if (payload.length === 0) {
+    setCsvFeedback(errors.slice(0, 3).join(" "), true);
+    return;
+  }
+
+  const { error } = await supabase
+    .from("products")
+    .upsert(payload, { onConflict: "user_id,product_code" });
+
+  if (error) {
+    console.error("Erro ao importar CSV:", error);
+    setCsvFeedback(`Erro ao importar CSV: ${error.message}`, true);
+    return;
+  }
+
+  const skippedCount = rows.length - 1 - payload.length;
+  const summary = `Importacao concluida: ${payload.length} linha(s) processada(s).${skippedCount > 0 ? ` ${skippedCount} linha(s) ignorada(s).` : ""}`;
+  const detail = errors.length > 0 ? ` Erros: ${errors.slice(0, 3).join(" ")}` : "";
+  setCsvFeedback(`${summary}${detail}`, false);
+  fileInput.value = "";
 }
 
 function renderComputedMargin() {
@@ -167,6 +362,7 @@ async function initProductsPage() {
   if (!currentUser) return;
 
   document.getElementById("saveProductButton").addEventListener("click", saveProduct);
+  document.getElementById("importProductsCsvButton").addEventListener("click", importProductsFromCsv);
   document.getElementById("logoutButton").addEventListener("click", logout);
 }
 
