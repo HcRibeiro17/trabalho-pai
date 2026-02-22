@@ -1,0 +1,67 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monta Pedidos - Cadastrar Cliente</title>
+
+<link rel="stylesheet" href="css/style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./supabaseClient.js" defer></script>
+<script src="./clients.js" defer></script>
+</head>
+<body class="app-body">
+  <header class="topbar">
+    <h1 class="brand">Monta Pedidos</h1>
+    <div class="topbar-actions">
+      <button type="button" class="profile-icon" aria-label="Ir para perfil" onclick="window.location.href='profile.html'">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"></path>
+        </svg>
+      </button>
+      <button type="button" id="logoutButton">Logout</button>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="dashboard.html">Início</a>
+      <span class="crumb-sep">></span>
+      <a href="clients-menu.html">Clientes</a>
+      <span class="crumb-sep">></span>
+      <span>Cadastrar Cliente</span>
+    </nav>
+    <section class="form-card">
+      <h2>Cadastrar Cliente</h2>
+      <label>
+        Nome do cliente
+        <input type="text" id="clientName" maxlength="80" placeholder="Ex.: Mercadinho Central">
+      </label>
+      <label>
+        E-mail
+        <input type="email" id="clientEmail" maxlength="120" placeholder="contato@cliente.com">
+      </label>
+      <label>
+        Telefone
+        <input type="text" id="clientPhone" maxlength="30" placeholder="(27) 99999-9999">
+      </label>
+      <label>
+        Prazo
+        <input type="text" id="clientPaymentTerm" maxlength="40" placeholder="Ex.: 30 dias">
+      </label>
+      <label>
+        Tabela
+        <input type="text" id="clientPriceTable" maxlength="60" placeholder="Ex.: Tabela A">
+      </label>
+      <label>
+        Unidade de faturamento
+        <input type="text" id="clientBillingUnit" maxlength="60" placeholder="Ex.: Unidade RJ Centro">
+      </label>
+      <p id="clientFeedback" class="form-feedback"></p>
+      <button type="button" id="saveClientButton">Salvar cliente</button>
+    </section>
+  </main>
+</body>
+</html>
+

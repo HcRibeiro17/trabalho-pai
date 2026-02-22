@@ -1,0 +1,72 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monta Pedidos - Cadastrar Produtos</title>
+
+<link rel="stylesheet" href="css/style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./supabaseClient.js" defer></script>
+<script src="./products.js" defer></script>
+</head>
+<body class="app-body">
+  <header class="topbar">
+    <h1 class="brand">Monta Pedidos</h1>
+    <div class="topbar-actions">
+      <button type="button" class="profile-icon" aria-label="Ir para perfil" onclick="window.location.href='profile.html'">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"></path>
+        </svg>
+      </button>
+      <button type="button" id="logoutButton">Logout</button>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="dashboard.html">Início</a>
+      <span class="crumb-sep">></span>
+      <a href="products-menu.html">Produtos</a>
+      <span class="crumb-sep">></span>
+      <span>Cadastrar Produto</span>
+    </nav>
+    <section class="form-card">
+      <h2>Cadastrar Produto</h2>
+      <label>
+        ID do produto
+        <input type="text" id="productCode" maxlength="40" placeholder="Ex.: SKU-001">
+      </label>
+      <label>
+        Nome do produto
+        <input type="text" id="productName" maxlength="80" placeholder="Ex.: Refrigerante 2L">
+      </label>
+      <label>
+        Preco de Tabela (R$)
+        <input type="text" id="productPriceTable" inputmode="decimal" placeholder="Ex.: 49,67 ou R$ 49,67">
+      </label>
+      <label>
+        Preco Tabela 0 (R$)
+        <input type="text" id="productPriceMarginZero" inputmode="decimal" placeholder="Ex.: 1498,00 ou R$ 1.498,00">
+      </label>
+      <label>
+        Peso
+        <input type="text" id="productWeight" inputmode="decimal" placeholder="Ex.: 12,50">
+      </label>
+      <label>
+        Variavel
+        <input type="text" id="productVariableValue" inputmode="decimal" placeholder="Ex.: 25,00">
+      </label>
+      <label>
+        Margem (calculada)
+        <input type="text" id="productComputedMargin" readonly placeholder="Calculada automaticamente">
+      </label>
+      <p id="productComputedMarginInfo" class="computed-margin">Margem calculada: -</p>
+      <p id="productFeedback" class="form-feedback"></p>
+      <button type="button" id="saveProductButton">Salvar produto</button>
+    </section>
+  </main>
+</body>
+</html>
+

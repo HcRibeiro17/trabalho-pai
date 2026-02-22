@@ -1,0 +1,137 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monta Pedidos - Inicio</title>
+
+<link rel="stylesheet" href="css/style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./supabaseClient.js" defer></script>
+<script src="./dashboard.js" defer></script>
+</head>
+<body class="app-body">
+  <header class="topbar">
+    <h1 class="brand">Monta Pedidos</h1>
+    <div class="topbar-actions">
+      <button type="button" class="profile-icon" aria-label="Ir para perfil" onclick="window.location.href='profile.html'">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"></path>
+        </svg>
+      </button>
+      <button type="button" id="logoutButton">Logout</button>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="dashboard.html">Início</a>
+      <span class="crumb-sep">></span>
+      <span>Pedidos</span>
+      <span class="crumb-sep">></span>
+      <span>Cadastrar Pedido</span>
+    </nav>
+    <section class="welcome-card">
+      <h2 id="welcomeName">Bem-vindo</h2>
+      <p id="welcomeMeta"></p>
+    </section>
+
+    <section class="quick-actions">
+      <button type="button" onclick="window.location.href='clients-menu.html'">Clientes</button>
+      <button type="button" onclick="window.location.href='products-menu.html'">Produtos</button>
+    </section>
+
+    <section class="order-builder">
+      <h3>Cadastrar Pedido</h3>
+      <div class="builder-sections">
+        <section class="list-card">
+          <h4>Selecionar Cliente</h4>
+          <div class="autocomplete-wrap">
+            <input type="text" id="clientSearchInput" placeholder="Digite para buscar cliente">
+            <div id="clientSuggestions" class="suggestions hidden"></div>
+          </div>
+        </section>
+
+        <section class="list-card">
+          <h4>Selecionar Itens</h4>
+          <div class="autocomplete-wrap">
+            <input type="text" id="productSearchInput" placeholder="Digite para buscar item">
+            <div id="productSuggestions" class="suggestions hidden"></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="cart-panel">
+        <h4>Itens do Pedido</h4>
+        <p id="selectedClientInfo"></p>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Preco Tabela</th>
+                <th>Preco Negociado</th>
+                <th>Quantidade</th>
+                <th>Peso Total</th>
+                <th>Valor Total</th>
+                <th>Margem</th>
+                <th>Margem Total (T)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cartTableBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination-row">
+          <button type="button" id="cartPrevPageButton">Anterior</button>
+          <span id="cartPaginationInfo">Pagina 1</span>
+          <button type="button" id="cartNextPageButton">Proxima</button>
+        </div>
+        <div class="cart-summary right-align">
+          <p id="cartTotalWeight" class="cart-total">Peso Total: 0,00</p>
+          <p id="cartTotal" class="cart-total">Valor Total: R$ 0,00</p>
+          <p id="cartTotalMargin" class="cart-total">Margem Total: R$ 0,00</p>
+          <p id="cartTotalMarginTon" class="cart-total">Margem Total (T): R$ 0,00</p>
+        </div>
+        <button type="button" id="finalizeOrderButton">Finalizar pedido</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="profileModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h3>Complete seu perfil</h3>
+      <p class="modal-subtitle">Essas informacoes sao obrigatorias para continuar.</p>
+
+      <label>
+        Nome de usuario
+        <input type="text" id="profileName" maxlength="40" placeholder="Digite um nome unico">
+      </label>
+
+      <label>
+        Cargo
+        <select id="profileRole">
+          <option value="">Selecione</option>
+          <option value="gerente">Gerente</option>
+          <option value="supervisor">Supervisor</option>
+          <option value="vendedor">Vendedor</option>
+        </select>
+      </label>
+
+      <label>
+        Regional
+        <select id="profileRegional">
+          <option value="">Selecione</option>
+          <option value="ESPIRITO SANTO">ESPIRITO SANTO</option>
+          <option value="RIO DE JANEIRO">RIO DE JANEIRO</option>
+        </select>
+      </label>
+
+      <p id="profileFeedback" class="form-feedback"></p>
+      <button type="button" id="saveProfileButton">Salvar perfil</button>
+    </div>
+  </div>
+</body>
+</html>
+

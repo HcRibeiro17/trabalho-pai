@@ -1,70 +1,31 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Meu Projeto</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monta Pedidos - Login</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: linear-gradient(135deg, #1e3c72, #2a5298);
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
+<link rel="stylesheet" href="css/style.css">
 
-    .container {
-      text-align: center;
-      background: rgba(255,255,255,0.1);
-      padding: 40px;
-      border-radius: 12px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-    }
+<!-- SDK do Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./supabaseClient.js" defer></script>
+<script src="./auth.js" defer></script>
 
-    h1 {
-      margin-bottom: 10px;
-      font-size: 32px;
-    }
-
-    p {
-      opacity: 0.9;
-    }
-
-    button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      background-color: white;
-      color: #1e3c72;
-      font-weight: bold;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-
-    button:hover {
-      background-color: #f0f0f0;
-    }
-  </style>
 </head>
 <body>
 
-  <div class="container">
-    <h1>🚀 Meu Projeto Online</h1>
-    <p>Site publicado com GitHub Pages</p>
-    <button onclick="mostrarMensagem()">Testar JS</button>
-  </div>
+<div class="login-container">
+  <h1>Monta Pedidos</h1>
 
-  <script>
-    function mostrarMensagem() {
-      alert("JavaScript funcionando!");
-    }
-  </script>
+  <input type="email" id="email" placeholder="Seu e-mail" required>
+  <input type="password" id="password" placeholder="Senha" required>
+
+  <button type="button" onclick="login()">Entrar</button>
+
+  <a href="#">Esqueci minha senha</a>
+  <a href="#" onclick="signup(); return false;">Nao tem conta? Cadastre-se</a>
+</div>
 
 </body>
 </html>

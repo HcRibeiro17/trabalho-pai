@@ -1,0 +1,69 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monta Pedidos - Consultar Clientes</title>
+
+<link rel="stylesheet" href="css/style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./supabaseClient.js" defer></script>
+<script src="./clients-consult.js" defer></script>
+</head>
+<body class="app-body">
+  <header class="topbar">
+    <h1 class="brand">Monta Pedidos</h1>
+    <div class="topbar-actions">
+      <button type="button" class="profile-icon" aria-label="Ir para perfil" onclick="window.location.href='profile.html'">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"></path>
+        </svg>
+      </button>
+      <button type="button" id="logoutButton">Logout</button>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="dashboard.html">Início</a>
+      <span class="crumb-sep">></span>
+      <a href="clients-menu.html">Clientes</a>
+      <span class="crumb-sep">></span>
+      <span>Consultar Clientes</span>
+    </nav>
+    <section class="list-card">
+      <h2>Consultar Clientes</h2>
+      <div class="search-row">
+        <input type="text" id="clientSearchInput" placeholder="Buscar por nome, email ou telefone">
+        <button type="button" id="clientSearchButton">Buscar</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Email</th>
+              <th>Telefone</th>
+              <th>Prazo</th>
+              <th>Tabela</th>
+              <th>Unidade</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="clientsTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="pagination-row">
+        <button type="button" id="prevPageButton">Anterior</button>
+        <span id="paginationInfo">Pagina 1</span>
+        <button type="button" id="nextPageButton">Proxima</button>
+      </div>
+      <p id="consultFeedback" class="form-feedback"></p>
+    </section>
+  </main>
+</body>
+</html>
+
