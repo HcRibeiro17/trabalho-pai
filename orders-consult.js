@@ -141,10 +141,10 @@ function previewOrderPdf(order, items) {
 
   pdf.text("Produto", 14, y);
   pdf.text("Qtd", 95, y);
-  pdf.text("Peso Tot. (kg)", 112, y);
+  pdf.text("Peso Tot.", 112, y);
   pdf.text("Vlr Tot.", 138, y);
-  pdf.text("Margem (R$/kg)", 164, y);
-  pdf.text("Margem T", 186, y);
+  pdf.text("Margem", 164, y);
+  pdf.text("Margem Total", 186, y);
   y += 2;
   pdf.line(14, y, 196, y);
   y += 5;
@@ -175,14 +175,14 @@ function previewOrderPdf(order, items) {
   y += 4;
   pdf.line(14, y, 196, y);
   y += 6;
-  const totalMarginPerKg = totals.totalWeight > 0 ? totals.totalMarginTon / totals.totalWeight : 0;
-  pdf.text(`Peso Total (kg): ${numberBR(totals.totalWeight)}`, 14, y);
+  const totalMarginPerTon = totals.totalWeight > 0 ? totals.totalMarginTon / (totals.totalWeight / 1000) : 0;
+  pdf.text(`Peso Total: ${numberBR(totals.totalWeight)}`, 14, y);
   y += 5;
   pdf.text(`Valor Total: ${moneyBRL(totals.totalValue)}`, 14, y);
   y += 5;
-  pdf.text(`Margem Total (R$/kg): ${moneyBRL(totalMarginPerKg)}`, 14, y);
+  pdf.text(`Margem por Tonelada: ${moneyBRL(totalMarginPerTon)}`, 14, y);
   y += 5;
-  pdf.text(`Margem Total (T): ${moneyBRL(totals.totalMarginTon)}`, 14, y);
+  pdf.text(`Margem Total: ${moneyBRL(totals.totalMarginTon)}`, 14, y);
 
   const pdfBlob = pdf.output("blob");
   openPdfPreview(pdfBlob);
@@ -503,4 +503,3 @@ async function initOrdersConsultPage() {
 }
 
 document.addEventListener("DOMContentLoaded", initOrdersConsultPage);
-

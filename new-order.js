@@ -239,7 +239,7 @@ function getDisplayedTotalMargin(totals) {
   const totalWeight = Number(totals?.totalWeight || 0);
   const totalMarginTon = Number(totals?.totalMarginTon || 0);
   if (totalWeight <= 0) return 0;
-  return totalMarginTon / totalWeight;
+  return totalMarginTon / (totalWeight / 1000);
 }
 
 function downloadOrderPdf(orderRow, clientName, itemsSnapshot, totals) {
@@ -267,10 +267,10 @@ function downloadOrderPdf(orderRow, clientName, itemsSnapshot, totals) {
 
   pdf.text("Produto", 14, y);
   pdf.text("Qtd", 95, y);
-  pdf.text("Peso Tot. (kg)", 112, y);
+  pdf.text("Peso Tot.", 112, y);
   pdf.text("Vlr Tot.", 138, y);
-  pdf.text("Margem (R$/kg)", 164, y);
-  pdf.text("Margem T", 186, y);
+  pdf.text("Margem", 164, y);
+  pdf.text("Margem Total", 186, y);
   y += 2;
   pdf.line(14, y, 196, y);
   y += 5;
@@ -299,14 +299,14 @@ function downloadOrderPdf(orderRow, clientName, itemsSnapshot, totals) {
   y += 4;
   pdf.line(14, y, 196, y);
   y += 6;
-  const totalMarginPerKg = totals.totalWeight > 0 ? totals.totalMarginTon / totals.totalWeight : 0;
-  pdf.text(`Peso Total (kg): ${numberBR(totals.totalWeight)}`, 14, y);
+  const totalMarginPerTon = totals.totalWeight > 0 ? totals.totalMarginTon / (totals.totalWeight / 1000) : 0;
+  pdf.text(`Peso Total: ${numberBR(totals.totalWeight)}`, 14, y);
   y += 5;
   pdf.text(`Valor Total: ${moneyBRL(totals.totalValue)}`, 14, y);
   y += 5;
-  pdf.text(`Margem Total (R$/kg): ${moneyBRL(totalMarginPerKg)}`, 14, y);
+  pdf.text(`Margem por Tonelada: ${moneyBRL(totalMarginPerTon)}`, 14, y);
   y += 5;
-  pdf.text(`Margem Total (T): ${moneyBRL(totals.totalMarginTon)}`, 14, y);
+  pdf.text(`Margem Total: ${moneyBRL(totals.totalMarginTon)}`, 14, y);
 
   pdf.save(`${orderRow.order_code}.pdf`);
 }
@@ -366,9 +366,9 @@ function renderCartTable() {
 
   if (cartItems.length === 0) {
     tableBody.innerHTML = "<tr><td colspan='9' class='empty-cell'>Nenhum item no pedido.</td></tr>";
-    cartTotalWeight.textContent = "Peso Total (kg): 0,00";
+    cartTotalWeight.textContent = "Peso Total: 0,00";
     cartTotal.innerHTML = `Valor Total: ${currencyHtml(0)}`;
-    cartTotalMargin.innerHTML = `Margem Total (R$/kg): ${currencyHtml(0)}`;
+    cartTotalMargin.innerHTML = `Margem por Tonelada: ${currencyHtml(0)}`;
     updateClientLockState();
     updateCartPaginationControls();
     return;
@@ -436,9 +436,9 @@ function renderCartTable() {
 
   const totals = getCartFormulaTotals();
   const displayedTotalMargin = getDisplayedTotalMargin(totals);
-  cartTotalWeight.textContent = `Peso Total (kg): ${totals.totalWeight.toFixed(2).replace(".", ",")}`;
+  cartTotalWeight.textContent = `Peso Total: ${totals.totalWeight.toFixed(2).replace(".", ",")}`;
   cartTotal.innerHTML = `Valor Total: ${currencyHtml(totals.totalValue)}`;
-  cartTotalMargin.innerHTML = `Margem Total (R$/kg): ${currencyHtml(displayedTotalMargin)}`;
+  cartTotalMargin.innerHTML = `Margem por Tonelada: ${currencyHtml(displayedTotalMargin)}`;
   updateClientLockState();
   updateCartPaginationControls();
 }
